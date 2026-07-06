@@ -11,9 +11,13 @@ export function performanceScore(
   heightMeters: number,
 ): number {
   const key = markKey(heightMeters);
-  const points = table.points_by_mark[gender][key];
+  const byGender = table.points_by_mark[gender];
+  if (byGender === undefined) {
+    throw new Error(`No ${table.event} scoring-table entries for ${gender}`);
+  }
+  const points = byGender[key];
   if (points === undefined) {
-    throw new Error(`No scoring-table entry for ${gender} high jump at ${key} m`);
+    throw new Error(`No ${table.event} scoring-table entry for ${gender} at ${key} m`);
   }
   return points;
 }

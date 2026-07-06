@@ -27,7 +27,7 @@ describe('performanceScore', () => {
     expect(performanceScore(table, 'women', 2.06)).toBe(1244);
   });
   test('throws on a mark not in the table', () => {
-    expect(() => performanceScore(table, 'men', 2.31)).toThrow();
+    expect(() => performanceScore(table, 'men', 2.31)).toThrow(/scoring-table entry/);
   });
 });
 
