@@ -1,1 +1,9 @@
 import '@testing-library/jest-dom';
+
+// jsdom does not implement ResizeObserver; Recharts' ResponsiveContainer requires it.
+// This minimal stub prevents a hard ReferenceError so chart-containing components can render.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
