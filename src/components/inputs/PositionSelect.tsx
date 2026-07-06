@@ -1,16 +1,23 @@
+import { WheelPicker, type WheelOption } from './WheelPicker';
+
 export function PositionSelect({
-  value, onChange, max = 16,
-}: { value: number; onChange: (p: number) => void; max?: number }) {
-  const positions = Array.from({ length: max }, (_, i) => i + 1);
+  value,
+  onChange,
+  max = 16,
+}: {
+  value: number;
+  onChange: (p: number) => void;
+  max?: number;
+}) {
+  const options: WheelOption[] = Array.from({ length: max }, (_, i) => ({
+    value: i + 1,
+    label: ordinal(i + 1),
+  }));
   return (
-    <label className="field">
+    <div className="field">
       <span>Position</span>
-      <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
-        {positions.map((p) => (
-          <option key={p} value={p}>{ordinal(p)}</option>
-        ))}
-      </select>
-    </label>
+      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Position" />
+    </div>
   );
 }
 

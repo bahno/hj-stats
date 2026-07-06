@@ -1,15 +1,27 @@
 import type { Gender } from '../../data/types';
 
 export function GenderToggle({
-  value, onChange,
-}: { value: Gender; onChange: (g: Gender) => void }) {
+  value,
+  onChange,
+}: {
+  value: Gender;
+  onChange: (g: Gender) => void;
+}) {
   return (
-    <label className="field">
+    <div className="field">
       <span>Gender</span>
-      <select value={value} onChange={(e) => onChange(e.target.value as Gender)}>
-        <option value="men">Men</option>
-        <option value="women">Women</option>
-      </select>
-    </label>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value === 'women'}
+        aria-label="Gender"
+        className={`gender-switch ${value}`}
+        onClick={() => onChange(value === 'men' ? 'women' : 'men')}
+      >
+        <span className="gender-knob" aria-hidden />
+        <span className="gender-label men">Men</span>
+        <span className="gender-label women">Women</span>
+      </button>
+    </div>
   );
 }
