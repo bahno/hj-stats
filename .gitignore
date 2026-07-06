@@ -1,0 +1,10 @@
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Dependencies / build output (uncomment as needed once you add a framework)
+# node_modules/
+# dist/
