@@ -16,6 +16,11 @@ EXPECTED_PLACING_1ST = {"OW": 375, "DF": 240, "GW": 200, "GL": 170, "A": 140}
 # Independent source: read line-by-line from raw page text, NOT from extraction code output.
 #   Men's section  (doc pages 398-425): columns "Points HJ PV LJ TJ SP DT HT JT Hept.sh Dec."
 #   Women's section (doc pages 818-845): columns "Points HJ PV LJ TJ SP DT HT JT Pent.sh Hept."
+# NOTE — anchor residual risk: these anchor values were read by eye from the same PDF that the
+# pipeline downloads and parses via pdfplumber, so independence is at the reading-method level
+# (human eye vs. extraction code), NOT at the source level.  A future maintainer who wants
+# stronger assurance should cross-check these anchors against a third-party calculator (e.g.
+# the official WA online scoring tool at worldathletics.org/util/scoring-calculator).
 # Do NOT change these values to force a pass.
 EXPECTED_PERFORMANCE = {
     "men": {

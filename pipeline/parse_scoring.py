@@ -60,9 +60,10 @@ def _parse_section(pages) -> dict[str, int]:
             stripped = line.strip()
             if not stripped:
                 continue
-            # Skip header / title lines.
-            if any(kw in stripped for kw in ("Points", "HJ", "HOMMES", "MEN'S",
-                                              "FEMMES", "WOMEN'S", "WORLD")):
+            # Skip header / title lines — any line starting with a letter is
+            # a header, footer, or title.  Real data rows start with a digit
+            # (either the points value or the HJ mark).
+            if re.match(r"^[A-Za-z]", stripped):
                 continue
             parts = stripped.split()
             if len(parts) < 2:
@@ -85,8 +86,8 @@ def _parse_section(pages) -> dict[str, int]:
 def extract(pdf_bytes: bytes) -> dict:
     """Extract {mark -> points} for men's and women's high jump."""
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        men = _parse_section(pdf.pages[i] for i in MEN_PAGES)
-        women = _parse_section(pdf.pages[i] for i in WOMEN_PAGES)
+        men = _parse_section([pdf.pages[i] for i in MEN_PAGES])
+        women = _parse_section([pdf.pages[i] for i in WOMEN_PAGES])
     return {"men": men, "women": women}
 
 
