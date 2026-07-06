@@ -6,5 +6,8 @@
 Thumbs.db
 
 # Dependencies / build output (uncomment as needed once you add a framework)
-# node_modules/
-# dist/
+node_modules/
+dist/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
