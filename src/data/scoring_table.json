@@ -1,0 +1,9 @@
+{
+  "event": "high_jump",
+  "unit": "m",
+  "source": "SEED — replaced by pipeline/parse_scoring.py",
+  "points_by_mark": {
+    "men":   { "2.30": 1244, "2.00": 859 },
+    "women": { "2.06": 1244, "1.80": 892 }
+  }
+}

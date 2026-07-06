@@ -1,0 +1,15 @@
+{
+  "source": "SEED — replaced by pipeline/scrape_placing.py",
+  "final": {
+    "OW": { "1": 375 },
+    "DF": { "1": 240 },
+    "GW": { "1": 200 },
+    "GL": { "1": 170 },
+    "A":  { "1": 140 },
+    "B":  {},
+    "C":  {},
+    "D":  {},
+    "E":  {},
+    "F":  {}
+  }
+}
