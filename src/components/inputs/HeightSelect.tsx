@@ -1,14 +1,21 @@
+import { WheelPicker, type WheelOption } from './WheelPicker';
+
 export function HeightSelect({
-  marks, value, onChange,
-}: { marks: number[]; value: number; onChange: (m: number) => void }) {
+  marks,
+  value,
+  onChange,
+}: {
+  marks: number[];
+  value: number;
+  onChange: (m: number) => void;
+}) {
+  const options: WheelOption[] = [...marks]
+    .sort((a, b) => b - a)
+    .map((m) => ({ value: m, label: `${m.toFixed(2)}m` }));
   return (
-    <label className="field">
+    <div className="field">
       <span>Height</span>
-      <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
-        {marks.map((m) => (
-          <option key={m} value={m}>{m.toFixed(2)} m</option>
-        ))}
-      </select>
-    </label>
+      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Height" />
+    </div>
   );
 }

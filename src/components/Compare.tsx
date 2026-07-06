@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { CategoryCode, Gender } from '../data/types';
 import { CATEGORY_CODES } from '../data/types';
 import { categories, placingPoints, scoringTable } from '../engine/data';
-import { availableMarks } from '../engine/marks';
+import { availableMarks, defaultHeightFor } from '../engine/marks';
 import { compareCategories, resultScore } from '../engine/score';
 import { GenderToggle } from './inputs/GenderToggle';
 import { HeightSelect } from './inputs/HeightSelect';
@@ -15,9 +15,16 @@ const ALL = [...CATEGORY_CODES] as CategoryCode[];
 export function Compare() {
   const [gender, setGender] = useState<Gender>('men');
   const [position, setPosition] = useState(1);
+  const [height, setHeight] = useState(() => defaultHeightFor(scoringTable, 'men'));
   const marks = useMemo(() => availableMarks(scoringTable, gender), [gender]);
-  const [height, setHeight] = useState(marks[0]);
-  const effectiveHeight = marks.includes(height) ? height : marks[0];
+  const effectiveHeight = marks.includes(height)
+    ? height
+    : defaultHeightFor(scoringTable, gender);
+
+  function handleGender(next: Gender) {
+    setGender(next);
+    setHeight(defaultHeightFor(scoringTable, next));
+  }
 
   const rows = compareCategories(scoringTable, placingPoints, gender, effectiveHeight, position, ALL);
 
@@ -33,9 +40,9 @@ export function Compare() {
   }, [marks, gender, position]);
 
   return (
-    <section className="card wide">
+    <section className={`card wide ${gender}`}>
       <div className="fields">
-        <GenderToggle value={gender} onChange={setGender} />
+        <GenderToggle value={gender} onChange={handleGender} />
         <HeightSelect marks={marks} value={effectiveHeight} onChange={setHeight} />
         <PositionSelect value={position} onChange={setPosition} />
       </div>

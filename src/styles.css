@@ -5,38 +5,338 @@
   --text: #e6edf3;
   --muted: #8b949e;
   --accent: #3b82f6;
+  --men: #3b82f6;
+  --women: #ec4899;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif; }
-.app { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
-.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-.topbar h1 { font-size: 1.25rem; letter-spacing: 0.02em; margin: 0; }
-.nav button { background: transparent; color: var(--muted); border: 1px solid var(--line);
-  padding: 6px 14px; cursor: pointer; font-size: 0.9rem; }
-.nav button:first-child { border-radius: 6px 0 0 6px; }
-.nav button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
-.nav button.active { color: var(--text); background: var(--panel); border-color: var(--accent); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: 24px; max-width: 420px; margin: 0 auto; }
-.card.wide { max-width: 100%; }
-.fields { display: grid; gap: 12px; }
-.field { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 12px; }
-.field span { color: var(--muted); font-size: 0.9rem; }
-.field select { width: 100%; min-width: 0; max-width: 100%;
-  background: var(--bg); color: var(--text); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 10px; font-size: 0.95rem;
-  text-overflow: ellipsis; }
-.result { margin-top: 24px; text-align: center; border-top: 1px solid var(--line); padding-top: 20px; }
-.score-label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.score { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 3rem;
-  color: var(--accent); line-height: 1.1; }
-.breakdown { color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
-h2 { font-size: 0.95rem; color: var(--muted); font-weight: 600; margin: 28px 0 8px; }
-.numbers { width: 100%; border-collapse: collapse; margin-top: 16px; font-family: var(--mono);
-  font-variant-numeric: tabular-nums; font-size: 0.9rem; }
-.numbers th, .numbers td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
-.numbers th:first-child, .numbers td:first-child { text-align: left; }
-.hint { color: var(--muted); font-size: 0.8rem; margin-top: 12px; }
-@media (max-width: 520px) { .field { grid-template-columns: 1fr; } }
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Softer, less intrusive focus treatment across interactive controls. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.topbar h1 {
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.nav button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.nav button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.nav button:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.nav button.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: rgb(59 130 246 / 0.4);
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.card.wide {
+  max-width: 100%;
+}
+
+/* Corner accent glow that tints by gender (blue = men, pink = women). */
+.card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 220px;
+  height: 220px;
+  pointer-events: none;
+  opacity: 0.5;
+  background: radial-gradient(
+    circle at top right,
+    var(--glow, transparent),
+    transparent 68%
+  );
+  transition: background 0.3s ease, opacity 0.3s ease;
+}
+
+.card.men {
+  --glow: rgb(59 130 246 / 0.55);
+}
+
+.card.women {
+  --glow: rgb(236 72 153 / 0.5);
+}
+
+.fields {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.field select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+}
+
+.field select:focus-visible {
+  border-color: rgb(59 130 246 / 0.45);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+}
+
+/* Gender sliding switch */
+.gender-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 100%;
+  max-width: 300px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.gender-knob {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.gender-switch.men .gender-knob {
+  transform: translateX(0);
+  background: rgb(59 130 246 / 0.22);
+  border-color: rgb(59 130 246 / 0.5);
+}
+
+.gender-switch.women .gender-knob {
+  transform: translateX(100%);
+  background: rgb(236 72 153 / 0.2);
+  border-color: rgb(236 72 153 / 0.5);
+}
+
+.gender-label {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+
+.gender-switch.men .gender-label.men {
+  color: var(--text);
+}
+
+.gender-switch.women .gender-label.women {
+  color: var(--text);
+}
+
+.gender-switch:focus-visible {
+  border-color: rgb(59 130 246 / 0.45);
+}
+
+/* iOS-alarm-style wheel picker (height & position) */
+.wheel {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 28%,
+    #000 72%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 28%,
+    #000 72%,
+    transparent
+  );
+}
+
+.wheel-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.wheel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, font-size 0.15s ease;
+}
+
+.wheel-item.selected {
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.wheel-center {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.2s ease;
+}
+
+.wheel:focus-within .wheel-center {
+  border-color: rgb(59 130 246 / 0.4);
+}
+
+.result {
+  margin-top: 24px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.score-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.score {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 3rem;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.breakdown {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+h2 {
+  font-size: 0.95rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 28px 0 8px;
+}
+
+.numbers {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.numbers th,
+.numbers td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.numbers th:first-child,
+.numbers td:first-child {
+  text-align: left;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 12px;
+}
+
+@media (max-width: 520px) {
+  .field {
+    grid-template-columns: 1fr;
+  }
+}

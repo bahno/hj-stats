@@ -1,12 +1,12 @@
 [
-  { "code": "OW", "name": "Olympic Games / World Championships" },
+  { "code": "OW", "name": "Olympics / World Championships" },
   { "code": "DF", "name": "Diamond League Final" },
-  { "code": "GW", "name": "World Indoor / Diamond League" },
+  { "code": "GW", "name": "World Indoors / Diamond League" },
   { "code": "GL", "name": "Area Senior Outdoor Championships" },
-  { "code": "A", "name": "Category A" },
-  { "code": "B", "name": "Category B" },
-  { "code": "C", "name": "Category C" },
-  { "code": "D", "name": "Category D" },
-  { "code": "E", "name": "Category E" },
-  { "code": "F", "name": "Category F" }
+  { "code": "A", "name": "Gold" },
+  { "code": "B", "name": "Silver" },
+  { "code": "C", "name": "Bronze" },
+  { "code": "D", "name": "Challenger" },
+  { "code": "E", "name": "International" },
+  { "code": "F", "name": "National" }
 ]
