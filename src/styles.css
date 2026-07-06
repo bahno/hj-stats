@@ -24,8 +24,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .fields { display: grid; gap: 12px; }
 .field { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 12px; }
 .field span { color: var(--muted); font-size: 0.9rem; }
-.field select { background: var(--bg); color: var(--text); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 10px; font-size: 0.95rem; }
+.field select { width: 100%; min-width: 0; max-width: 100%;
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 10px; font-size: 0.95rem;
+  text-overflow: ellipsis; }
 .result { margin-top: 24px; text-align: center; border-top: 1px solid var(--line); padding-top: 20px; }
 .score-label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .score { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 3rem;
