@@ -29,23 +29,63 @@ def find_final_table(soup: BeautifulSoup):
     """Return the T&F final placing table (Table 2.2).
 
     The page uses <td> elements (not <th>) inside <thead> for column headers.
-    We search for a table whose <thead> contains all category codes.
+    We collect ALL tables whose <thead> contains all category codes, then
+    prefer the one whose nearest preceding heading/paragraph references
+    "Final" (and ideally "Track" or "2.2"). If more than one candidate
+    still matches after that filter, we raise rather than silently guess.
     """
+    REQUIRED_CATS = ("OW", "DF", "GW", "GL", "A")
+
+    # Step 1: collect every table that has all required category codes in its thead.
+    candidates = []
     for table in soup.find_all("table"):
         thead = table.find("thead")
         if not thead:
             continue
-        # Headers are <td> elements in the thead
         header_cells = [td.get_text(strip=True) for td in thead.find_all("td")]
-        if all(cat in header_cells for cat in ("OW", "DF", "GW", "GL", "A")):
-            return table
-    raise SystemExit("Could not locate the placing table by category headers in <thead>")
+        if all(cat in header_cells for cat in REQUIRED_CATS):
+            candidates.append(table)
+
+    if not candidates:
+        raise SystemExit("Could not locate the placing table by category headers in <thead>")
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # Step 2: narrow by preceding heading text — prefer tables whose nearest
+    # heading/paragraph contains "Final" and ("Track" or "2.2").
+    def heading_score(table) -> int:
+        prev = table.find_previous(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
+        if prev is None:
+            return 0
+        text = prev.get_text(strip=True)
+        score = 0
+        if re.search(r"final", text, re.IGNORECASE):
+            score += 2
+        if re.search(r"track|2\.2", text, re.IGNORECASE):
+            score += 1
+        return score
+
+    max_score = max(heading_score(t) for t in candidates)
+    best = [t for t in candidates if heading_score(t) == max_score]
+
+    if len(best) == 1:
+        return best[0]
+
+    raise SystemExit(
+        f"Ambiguous placing table: {len(best)} candidates matched after heading filter "
+        f"(total candidates before filter: {len(candidates)}). "
+        "Cannot unambiguously select Table 2.2 — inspect the page structure."
+    )
 
 
 def parse(table) -> dict:
     thead = table.find("thead")
     headers = [td.get_text(strip=True) for td in thead.find_all("td")]
     col = {cat: headers.index(cat) for cat in CATEGORIES if cat in headers}
+    missing = [c for c in CATEGORIES if c not in col]
+    if missing:
+        raise SystemExit(f"Missing category columns in placing table: {missing}")
     final = {cat: {} for cat in CATEGORIES}
     for row in table.find("tbody").find_all("tr"):
         cells = [td.get_text(strip=True) for td in row.find_all(["td", "th"])]
