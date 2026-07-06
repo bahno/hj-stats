@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { performanceScore, placingScore } from './score';
+import { performanceScore, placingScore, resultScore, compareCategories } from './score';
 import type { ScoringTable, PlacingPoints } from '../data/types';
 
 const table: ScoringTable = {
@@ -39,5 +39,21 @@ describe('placingScore', () => {
   test('absent position yields 0', () => {
     expect(placingScore(placing, 'OW', 16)).toBe(0);
     expect(placingScore(placing, 'F', 1)).toBe(0);
+  });
+});
+
+describe('resultScore', () => {
+  test('sums performance and placing', () => {
+    const r = resultScore(table, placing, 'men', 2.3, 1, 'OW');
+    expect(r).toEqual({ performance: 1244, placing: 375, total: 1619 });
+  });
+});
+
+describe('compareCategories', () => {
+  test('one entry per requested category, same performance component', () => {
+    const rows = compareCategories(table, placing, 'men', 2.3, 1, ['OW', 'DF', 'A']);
+    expect(rows.map((r) => r.category)).toEqual(['OW', 'DF', 'A']);
+    expect(rows.every((r) => r.performance === 1244)).toBe(true);
+    expect(rows.find((r) => r.category === 'DF')!.total).toBe(1244 + 240);
   });
 });

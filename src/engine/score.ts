@@ -29,3 +29,40 @@ export function placingScore(
 ): number {
   return placing.final[category][String(position)] ?? 0;
 }
+
+export interface ScoreBreakdown {
+  performance: number;
+  placing: number;
+  total: number;
+}
+
+export function resultScore(
+  table: ScoringTable,
+  placing: PlacingPoints,
+  gender: Gender,
+  heightMeters: number,
+  position: number,
+  category: CategoryCode,
+): ScoreBreakdown {
+  const performance = performanceScore(table, gender, heightMeters);
+  const placingPts = placingScore(placing, category, position);
+  return { performance, placing: placingPts, total: performance + placingPts };
+}
+
+export interface CategoryScore extends ScoreBreakdown {
+  category: CategoryCode;
+}
+
+export function compareCategories(
+  table: ScoringTable,
+  placing: PlacingPoints,
+  gender: Gender,
+  heightMeters: number,
+  position: number,
+  categories: CategoryCode[],
+): CategoryScore[] {
+  return categories.map((category) => ({
+    category,
+    ...resultScore(table, placing, gender, heightMeters, position, category),
+  }));
+}
