@@ -27,7 +27,7 @@ export function placingScore(
   category: CategoryCode,
   position: number,
 ): number {
-  return placing.final[category][String(position)] ?? 0;
+  return placing.final[category]?.[String(position)] ?? 0;
 }
 
 export interface ScoreBreakdown {

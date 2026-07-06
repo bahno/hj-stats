@@ -2,7 +2,6 @@
 import io
 import json
 import re
-import sys
 from pathlib import Path
 
 import pdfplumber
