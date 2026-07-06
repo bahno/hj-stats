@@ -22,10 +22,11 @@ explicitly deferred to v2.
 Build a static, fully-online web app with two features, both powered by one shared
 ranking-points engine:
 
-1. **Points Calculator** — enter a height + finish place + competition category →
-   see the ranking points, broken down into Performance + Placing.
-2. **Category Comparison** — for a given performance, visualize how total points
-   differ across competition categories (the headline feature).
+1. **Points Calculator (main screen)** — four simple selectors: **gender, height,
+   competition category, finishing position** → the Ranking Score, broken down into
+   Performance + Placing.
+2. **Category Comparison** — for a given gender + height + position, visualize how the
+   total score differs across competition categories (the headline feature).
 
 Scoring is **single-result** for v1: `Result Score = Performance Score + Placing Score`.
 
@@ -43,10 +44,11 @@ Confirmed with the user:
 Result Score = Performance Score + Placing Score
 ```
 
-- **Performance Score** — a function of the mark (height). Exact values come from the
-  official WA Scoring Tables. Encoded as a mark → points lookup.
-- **Placing Score** — depends on **competition category** × **finish place**. Higher
-  category and better place award more points. Encoded as category → {place → points}.
+- **Performance Score** — a function of **gender + mark (height)**. Men's and women's
+  high jump use different scoring tables. Exact values come from the official WA
+  Scoring Tables. Encoded as gender → (mark → points) lookup.
+- **Placing Score** — depends on **competition category** × **finish position**. Higher
+  category and better position award more points. Encoded as category → {position → points}.
 
 Competition categories: **OW, DF, GW, GL, A, B, C, D, E, F**.
 Example confirmed placing values (1st place, T&F final): OW 375, DF 240, GW 200,
@@ -95,7 +97,7 @@ opens a PR only when a value actually changes.
 ## Data pipeline
 
 **`parse_scoring.py`** — parses the official WA **Scoring Tables PDF** with `pdfplumber`,
-extracts the high jump column (mark ↔ points), emits:
+extracts **both the men's and women's** high jump columns (mark ↔ points), emits:
 
 ```json
 // scoring_table.json
@@ -103,7 +105,10 @@ extracts the high jump column (mark ↔ points), emits:
   "event": "high_jump",
   "unit": "m",
   "source": "World Athletics Scoring Tables 2025",
-  "points_by_mark": { "2.30": 1244, "2.29": 1234, "...": 0 }
+  "points_by_mark": {
+    "men":   { "2.30": 1244, "2.29": 1234, "...": 0 },
+    "women": { "2.06": 1244, "2.05": 1233, "...": 0 }
+  }
 }
 ```
 
@@ -139,30 +144,56 @@ the Scoring Tables PDF lists high jump at 1 cm granularity (expected).
 
 Pure functions, no React, fully unit-tested:
 
-- `performanceScore(heightMeters): number` — exact lookup in `scoring_table.json`;
-  returns `null`/throws for marks not in the table (input is constrained to valid marks).
-- `placingScore(category, place): number` — lookup in `placing_points.json`; places
-  beyond the table award 0.
-- `resultScore(heightMeters, place, category): { performance, placing, total }`.
-- `compareCategories(heightMeters, place, categories[]): Array<{category, total, ...}>`
+- `performanceScore(gender, heightMeters): number` — exact lookup in
+  `scoring_table.json`; returns `null`/throws for marks not in the table (input is
+  constrained to valid marks).
+- `placingScore(category, position): number` — lookup in `placing_points.json`;
+  positions beyond the table award 0.
+- `resultScore(gender, heightMeters, position, category): { performance, placing, total }`.
+- `compareCategories(gender, heightMeters, position, categories[]): Array<{category, total, ...}>`
   — powers the comparison charts.
 
 ## Frontend
 
-React + Vite + TypeScript SPA, two tabbed views, responsive and dark-friendly
-(consistent with the existing placeholder styling).
+React + Vite + TypeScript SPA. One lightweight top toggle switches between two views.
+Responsive (same layout collapses to a single full-width column on mobile).
 
-- **Calculator** — inputs: height (valid marks only), finish place, category dropdown.
-  Output: a breakdown card (Performance + Placing = Result Score).
-- **Category Comparison** — controls: height (or height range), finish place, category
-  selection. Charts via **Recharts**:
-  - **Bar chart** — total Result Score per category at the chosen height + place.
-  - **Line chart** — Result Score vs height, one line per category (fixed place),
+**① Calculator (main screen)** — deliberately simple, a single centered card:
+
+```
+   hj-stats               [ Calculator | Compare ]
+  ------------------------------------------------
+              Gender     [ Men    v ]
+              Height     [ 2.30 m v ]
+              Category   [ OW     v ]
+              Position   [ 1st    v ]
+             --------------------------
+              Ranking Score      1394
+              Performance 1244 · Placing 150
+```
+
+- Inputs: **gender** toggle, **height** (valid marks only), **category** dropdown,
+  **position** dropdown.
+- Output: large tabular-figure **Ranking Score**, with the Performance + Placing
+  breakdown small underneath.
+
+**② Compare** — reuses the same selectors *except category* (category is the axis being
+compared) and shows every category at once. Charts via **Recharts**:
+  - **Bar chart** — total Ranking Score per category at the chosen gender + height + position.
+  - **Line chart** — Ranking Score vs height, one line per category (fixed position),
     showing where categories diverge.
   - A **table** beneath the charts with exact numbers.
 
 Charting library: **Recharts** (React-native ergonomics). ECharts is a fallback if a
 future view needs heavier visualization.
+
+### Visual design
+
+Direction: **calm data dashboard**. Near-black / navy base, a single cool
+**electric-blue** accent (active tab, chart bars/lines, the big score), restrained and
+analytical. **Tabular (monospaced) numerals** for all scores so figures align cleanly.
+Generous spacing, minimal chrome — the numbers are the interface. Consistent with the
+dark placeholder already deployed.
 
 ## Deploy
 
