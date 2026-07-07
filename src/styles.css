@@ -5,6 +5,8 @@
   --text: #e6edf3;
   --muted: #8b949e;
   --accent: #3b82f6;
+  /* Gender-driven accent as space-separated RGB channels so highlights can add alpha. */
+  --accent-rgb: 59 130 246;
   --men: #3b82f6;
   --women: #ec4899;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -107,11 +109,13 @@ body {
 }
 
 .card.men {
-  --glow: rgb(59 130 246 / 0.55);
+  --accent-rgb: 59 130 246;
+  --glow: rgb(var(--accent-rgb) / 0.55);
 }
 
 .card.women {
-  --glow: rgb(236 72 153 / 0.5);
+  --accent-rgb: 236 72 153;
+  --glow: rgb(var(--accent-rgb) / 0.5);
 }
 
 .fields {
@@ -145,8 +149,65 @@ body {
 }
 
 .field select:focus-visible {
-  border-color: rgb(59 130 246 / 0.45);
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.1);
+}
+
+/* Category tier grid: full-width stack (label above the control) so the chips
+   get real touch targets instead of being squeezed into the value column. */
+.field-stack {
+  display: block;
+}
+
+.field-stack > span {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.cat-chip {
+  appearance: none;
+  min-height: 44px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease,
+    background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cat-chip:hover {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.4);
+}
+
+.cat-chip.selected {
+  color: var(--text);
+  background: rgb(var(--accent-rgb) / 0.16);
+  border-color: rgb(var(--accent-rgb) / 0.7);
+  box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.25);
+}
+
+.cat-chip:focus-visible {
+  border-color: rgb(var(--accent-rgb) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.12);
+}
+
+.cat-name {
+  margin: 8px 0 0;
+  min-height: 1.1em;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 /* Gender sliding switch */
@@ -206,7 +267,7 @@ body {
 }
 
 .gender-switch:focus-visible {
-  border-color: rgb(59 130 246 / 0.45);
+  border-color: rgb(var(--accent-rgb) / 0.45);
 }
 
 /* iOS-alarm-style wheel picker (height & position) */
@@ -270,7 +331,7 @@ body {
 }
 
 .wheel:focus-within .wheel-center {
-  border-color: rgb(59 130 246 / 0.4);
+  border-color: rgb(var(--accent-rgb) / 0.4);
 }
 
 .result {
@@ -291,7 +352,7 @@ body {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: 3rem;
-  color: var(--accent);
+  color: rgb(var(--accent-rgb));
   line-height: 1.1;
 }
 
@@ -338,5 +399,26 @@ h2 {
 @media (max-width: 520px) {
   .field {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Fit the whole calculator tile within an iPhone-class screen without scrolling:
+   trim outer padding, tighten the card, and make the drum wheels less tall. */
+@media (max-width: 430px) {
+  .app {
+    padding: 16px 12px 32px;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .fields {
+    gap: 10px;
+  }
+
+  .result {
+    margin-top: 18px;
+    padding-top: 16px;
   }
 }

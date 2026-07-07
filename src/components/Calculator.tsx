@@ -10,7 +10,7 @@ import { PositionSelect } from './inputs/PositionSelect';
 
 export function Calculator() {
   const [gender, setGender] = useState<Gender>('men');
-  const [category, setCategory] = useState<CategoryCode>('OW');
+  const [category, setCategory] = useState<CategoryCode>('C');
   const [position, setPosition] = useState(1);
   const [height, setHeight] = useState(() => defaultHeightFor(scoringTable, 'men'));
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 export interface WheelOption {
@@ -7,7 +7,24 @@ export interface WheelOption {
 }
 
 const ITEM_HEIGHT = 36;
-const VISIBLE = 5; // must be odd so one row sits in the centre
+
+// Show fewer rows on phone-class screens so the whole calculator tile fits
+// without scrolling. Must stay odd so one row sits in the centre band.
+const PHONE = '(max-width: 430px)';
+
+function useVisibleRows() {
+  const canMatch = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+  const [rows, setRows] = useState(() => (canMatch && window.matchMedia(PHONE).matches ? 3 : 5));
+  useEffect(() => {
+    if (!canMatch) return;
+    const mq = window.matchMedia(PHONE);
+    const apply = () => setRows(mq.matches ? 3 : 5);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [canMatch]);
+  return rows;
+}
 
 /**
  * An iOS-alarm-style drum picker. Scroll / drag / arrow-key to spin; the value
@@ -24,6 +41,7 @@ export function WheelPicker({
   onChange: (value: number) => void;
   ariaLabel?: string;
 }) {
+  const VISIBLE = useVisibleRows();
   const scrollRef = useRef<HTMLDivElement>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout>>();
   // True while we are scrolling programmatically to reflect an external value
@@ -78,7 +96,7 @@ export function WheelPicker({
       programmatic.current = true;
       el.scrollTop = target;
     }
-  }, [index]);
+  }, [index, VISIBLE]);
 
   function handleScroll() {
     const el = scrollRef.current;
