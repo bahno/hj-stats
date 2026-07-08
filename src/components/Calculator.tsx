@@ -43,7 +43,7 @@ export function Calculator() {
         </div>
         <div className="score" data-testid="ranking-score">{score.total}</div>
         <div className="breakdown" data-testid="breakdown">
-          Performance {score.performance} · Placing {score.placing}
+          Performance {score.performance} Placing {score.placing}
         </div>
       </div>
     </section>

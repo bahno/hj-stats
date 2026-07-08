@@ -4,10 +4,12 @@ export function HeightSelect({
   marks,
   value,
   onChange,
+  rows,
 }: {
   marks: number[];
   value: number;
   onChange: (m: number) => void;
+  rows?: number;
 }) {
   const options: WheelOption[] = [...marks]
     .sort((a, b) => b - a)
@@ -15,7 +17,7 @@ export function HeightSelect({
   return (
     <div className="field">
       <span>Height</span>
-      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Height" />
+      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Height" rows={rows} />
     </div>
   );
 }

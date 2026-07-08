@@ -124,8 +124,8 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  width: 220px;
-  height: 220px;
+  width: 70%;
+  height: 70%;
   pointer-events: none;
   opacity: 0.5;
   background: radial-gradient(
@@ -877,25 +877,69 @@ h2 {
     margin: 0 auto;
   }
 
+  /* Left column = the athlete's current standing (name, scores, counting
+     competitions); right column = the simulator. Stacking the standing on the
+     left grows that column to roughly the simulator's height, so neither
+     overhangs the other. */
   .lookup-result {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "head  sim"
+      "stats sim"
+      "comps sim";
     column-gap: 36px;
     align-items: start;
   }
 
-  .lookup-head,
+  .lookup-head {
+    grid-area: head;
+  }
+
   .lookup-stats {
-    grid-column: 1 / -1;
+    grid-area: stats;
   }
 
   .lookup-comps {
-    grid-column: 1;
+    grid-area: comps;
   }
 
   .simulate {
-    grid-column: 2;
+    grid-area: sim;
     margin-top: 0;
-    align-self: start;
+  }
+
+  /* Lay the simulator's inputs horizontally so the panel's height stays close
+     to the competitions list: Height + Position wheels share a row, Category
+     chips span underneath. */
+  .simulate .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+    row-gap: 14px;
+  }
+
+  .simulate .fields > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  } /* Height */
+
+  .simulate .fields > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  } /* Category */
+
+  .simulate .fields > :nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  } /* Position */
+
+  /* Stack each wheel's label above it so the wheel gets the full cell width. */
+  .simulate .field {
+    grid-template-columns: 1fr;
+  }
+
+  .simulate .field > span {
+    margin-bottom: 4px;
   }
 }
