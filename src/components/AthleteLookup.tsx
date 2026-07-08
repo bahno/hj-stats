@@ -7,6 +7,8 @@ import {
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import { GenderToggle } from './inputs/GenderToggle';
+import { SimulateResult } from './SimulateResult';
+import { placeClass } from './placement';
 
 function normalize(s: string): string {
   return s
@@ -28,6 +30,8 @@ function matches(query: string, athlete: string): boolean {
 interface Found {
   row: RankingRow;
   calc: RankingCalculation;
+  peers: RankingRow[];
+  gender: Gender;
 }
 
 export function AthleteLookup() {
@@ -54,8 +58,11 @@ export function AthleteLookup() {
     setCandidates([]);
     setFound(null);
     try {
-      const calc = await fetchRankingCalculation(row.id);
-      setFound({ row, calc });
+      const [calc, list] = await Promise.all([
+        fetchRankingCalculation(row.id),
+        ranking(gender),
+      ]);
+      setFound({ row, calc, peers: list.rows, gender });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -89,7 +96,7 @@ export function AthleteLookup() {
   }
 
   return (
-    <section className={`card ${gender}`}>
+    <section className={`card lookup ${gender}`}>
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={setGender} />
         <label className="field">
@@ -117,7 +124,7 @@ export function AthleteLookup() {
               <button type="button" onClick={() => select(c)}>
                 <span>{c.athlete}</span>
                 <span className="muted">
-                  {c.nationality} · #{c.place} EU
+                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
                 </span>
               </button>
             </li>
@@ -139,8 +146,10 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 function Result({ found }: { found: Found }) {
-  const { row, calc } = found;
+  const { row, calc, peers, gender } = found;
   const results = calc.results;
+  const baseScores = results.map((r) => r.performanceScore);
+  const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
 
@@ -159,12 +168,12 @@ function Result({ found }: { found: Found }) {
         </div>
         <div className="stat">
           <div className="stat-label">European</div>
-          <div className="stat-value">#{row.place}</div>
+          <div className={`stat-value ${placeClass(row.place) ?? ''}`}>#{row.place}</div>
           {placeDelta && <div className="stat-delta">{placeDelta}</div>}
         </div>
         <div className="stat">
           <div className="stat-label">World</div>
-          <div className="stat-value">#{row.worldPlace}</div>
+          <div className={`stat-value ${placeClass(row.worldPlace) ?? ''}`}>#{row.worldPlace}</div>
         </div>
       </div>
 
@@ -176,7 +185,7 @@ function Result({ found }: { found: Found }) {
                 <div className="comp-name">{r.competition}</div>
                 <div className="comp-meta">
                   <span className="cat-badge">{r.category}</span>
-                  {r.date} · {r.place} · {r.mark} m
+                  {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
                 </div>
               </div>
               <div className="comp-score">
@@ -189,6 +198,14 @@ function Result({ found }: { found: Found }) {
           ))}
         </ul>
       </div>
+
+      <SimulateResult
+        gender={gender}
+        baseScores={baseScores}
+        currentScore={row.rankingScore}
+        currentPlace={row.place}
+        peerScores={peerScores}
+      />
     </div>
   );
 }

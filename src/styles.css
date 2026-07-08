@@ -9,6 +9,14 @@
   --accent-rgb: 59 130 246;
   --men: #3b82f6;
   --women: #ec4899;
+  /* Outcome colours for the result simulator. */
+  --pos: #3fb950;
+  --pos-rgb: 63 185 80;
+  --neg: #f85149;
+  /* Podium tints for 1st/2nd/3rd placements. */
+  --gold: #e0c068;
+  --silver: #c7cdd4;
+  --bronze: #cd8b5c;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
@@ -663,4 +671,193 @@ h2 {
 .lookup-note strong {
   color: var(--text);
   font-weight: 600;
+}
+
+/* Simulate-a-result: a separated panel inside the ranking lookup */
+.simulate {
+  margin-top: 22px;
+  padding: 16px;
+  background: rgb(255 255 255 / 0.02);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.simulate .fields {
+  margin-top: 12px;
+}
+
+.sim-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.sim-note strong {
+  color: rgb(var(--accent-rgb));
+  font-weight: 600;
+}
+
+/* Outcome, colour-coded on the numbers: muted when unchanged, green up, red down. */
+.sim-outcome {
+  margin-top: 14px;
+}
+
+/* Each tile's value + delta take the tone of its own change. */
+.simulate .stat.flat .stat-value {
+  color: var(--muted);
+}
+
+.simulate .stat.up .stat-value {
+  color: var(--pos);
+}
+
+.simulate .stat.down .stat-value {
+  color: var(--neg);
+}
+
+.stat-delta.flat {
+  color: var(--muted);
+}
+
+.stat-delta.up {
+  color: var(--pos);
+}
+
+.stat-delta.down {
+  color: var(--neg);
+}
+
+/* --- Desktop layouts: wider cards, multi-column (phone stays single-column) --- */
+@media (min-width: 760px) {
+  .nav {
+    max-width: 460px;
+  }
+
+  /* Calculator: inputs on the left, the score as a side panel on the right. */
+  .card.calc {
+    max-width: 660px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 230px;
+    gap: 36px;
+    align-items: center;
+  }
+
+  .card.calc .fields {
+    align-self: start;
+  }
+
+  .card.calc .result {
+    margin-top: 0;
+    padding: 0 0 0 36px;
+    border-top: none;
+    border-left: 1px solid var(--line);
+  }
+
+  .card.calc .score {
+    font-size: 3.4rem;
+  }
+
+  /* Rankings: search stays compact; the result splits into two columns
+     (counting competitions on the left, the simulator on the right). */
+  .card.lookup {
+    max-width: 840px;
+  }
+
+  .card.lookup > form.fields {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  /* Left column = the athlete's current standing (name, scores, counting
+     competitions); right column = the simulator. Stacking the standing on the
+     left grows that column to roughly the simulator's height, so neither
+     overhangs the other. */
+  .lookup-result {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "head  sim"
+      "stats sim"
+      "comps sim";
+    column-gap: 36px;
+    align-items: start;
+  }
+
+  .lookup-head {
+    grid-area: head;
+  }
+
+  .lookup-stats {
+    grid-area: stats;
+  }
+
+  .lookup-comps {
+    grid-area: comps;
+  }
+
+  .simulate {
+    grid-area: sim;
+    margin-top: 0;
+  }
+
+  /* Lay the simulator's inputs horizontally so the panel's height stays close
+     to the competitions list: Height + Position wheels share a row, Category
+     chips span underneath. */
+  .simulate .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+    row-gap: 14px;
+  }
+
+  .simulate .fields > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  } /* Height */
+
+  .simulate .fields > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  } /* Category */
+
+  .simulate .fields > :nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  } /* Position */
+
+  /* Stack each wheel's label above it so the wheel gets the full cell width. */
+  .simulate .field {
+    grid-template-columns: 1fr;
+  }
+
+  .simulate .field > span {
+    margin-bottom: 4px;
+  }
+}
+
+/* Podium tint for 1st/2nd/3rd placements, applied wherever a place is shown. */
+.place-1 {
+  color: var(--gold);
+}
+
+.place-2 {
+  color: var(--silver);
+}
+
+.place-3 {
+  color: var(--bronze);
+}
+
+/* Beat .wheel-item.selected's text colour so the podium tint still shows once dialed in. */
+.wheel-item.selected.place-1 {
+  color: var(--gold);
+}
+
+.wheel-item.selected.place-2 {
+  color: var(--silver);
+}
+
+.wheel-item.selected.place-3 {
+  color: var(--bronze);
 }

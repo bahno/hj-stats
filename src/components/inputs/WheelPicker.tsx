@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 export interface WheelOption {
   value: number;
   label: string;
+  className?: string;
 }
 
 const ITEM_HEIGHT = 36;
@@ -35,13 +36,17 @@ export function WheelPicker({
   value,
   onChange,
   ariaLabel,
+  rows,
 }: {
   options: WheelOption[];
   value: number;
   onChange: (value: number) => void;
   ariaLabel?: string;
+  /** Force a fixed visible-row count (odd) instead of the responsive default. */
+  rows?: number;
 }) {
-  const VISIBLE = useVisibleRows();
+  const responsiveRows = useVisibleRows();
+  const VISIBLE = rows ?? responsiveRows;
   const scrollRef = useRef<HTMLDivElement>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout>>();
   // True while we are scrolling programmatically to reflect an external value
@@ -148,7 +153,11 @@ export function WheelPicker({
             key={o.value}
             role="option"
             aria-selected={i === index}
-            className={'wheel-item' + (i === index ? ' selected' : '')}
+            className={
+              'wheel-item' +
+              (i === index ? ' selected' : '') +
+              (o.className ? ` ${o.className}` : '')
+            }
             style={{ height: ITEM_HEIGHT }}
             onClick={() => onChange(o.value)}
           >
