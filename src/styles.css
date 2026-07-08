@@ -124,8 +124,8 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  width: 70%;
-  height: 70%;
+  width: 400px;
+  height: 400px;
   pointer-events: none;
   opacity: 0.5;
   background: radial-gradient(
