@@ -232,6 +232,66 @@ body {
   box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.12);
 }
 
+/* Category prestige ladder: each tier carries its own colour, climbing the
+   ranked-game arc metals → gems → legendary. --tier is the tier colour as
+   space-separated RGB channels so tints and glows can add alpha. D/E/F sit
+   below the medals and share a quiet neutral tier so no chip is uncoloured. */
+.cat-chip[data-cat="C"]  { --tier: 158 98 60; }    /* bronze — dark muted copper-brown */
+.cat-chip[data-cat="B"]  { --tier: 199 205 212; }  /* silver  */
+.cat-chip[data-cat="A"]  { --tier: 247 191 30; }   /* gold — deep saturated gold */
+.cat-chip[data-cat="GL"] { --tier: 52 211 153; }   /* emerald */
+.cat-chip[data-cat="GW"] { --tier: 125 211 252; }  /* diamond */
+.cat-chip[data-cat="DF"] { --tier: 244 63 94; }    /* crimson */
+.cat-chip[data-cat="OW"] { --tier: 255 112 40; }   /* legendary — vivid fiery orange */
+.cat-chip[data-cat="D"],
+.cat-chip[data-cat="E"],
+.cat-chip[data-cat="F"] { --tier: 124 139 134; }   /* neutral — the unranked base tiers */
+
+/* Resting state: a quiet tier-tinted chip so the ladder reads at a glance. */
+.cat-chip[data-cat] {
+  color: color-mix(in srgb, rgb(var(--tier)) 55%, var(--muted));
+  background: rgb(var(--tier) / 0.07);
+  border-color: rgb(var(--tier) / 0.3);
+}
+
+.cat-chip[data-cat]:hover {
+  color: color-mix(in srgb, rgb(var(--tier)) 80%, var(--text));
+  background: rgb(var(--tier) / 0.12);
+  border-color: rgb(var(--tier) / 0.55);
+}
+
+/* Selected: the tier lights up in its own colour AND gets a consistent white
+   ring. Colour = which category; ring = selected — kept as two separate signals
+   so selection stays legible even on the neutral D/E/F chips. */
+.cat-chip[data-cat].selected {
+  color: color-mix(in srgb, rgb(var(--tier)) 35%, var(--text));
+  background: rgb(var(--tier) / 0.2);
+  border-color: rgb(var(--tier) / 0.85);
+  box-shadow: 0 0 16px rgb(var(--tier) / 0.32);
+  outline: 2px solid rgb(238 242 240 / 0.85);
+  outline-offset: 1px;
+}
+
+/* The gem and legendary tiers get a richer gradient sheen when selected so the
+   top of the ladder feels premium rather than just a brighter tint. */
+.cat-chip[data-cat="GL"].selected {
+  background: linear-gradient(135deg, rgb(52 211 153 / 0.24), rgb(16 185 129 / 0.14));
+}
+
+.cat-chip[data-cat="GW"].selected {
+  background: linear-gradient(135deg, rgb(165 243 252 / 0.24), rgb(196 181 253 / 0.18));
+  box-shadow: 0 0 18px rgb(125 211 252 / 0.38);
+}
+
+.cat-chip[data-cat="DF"].selected {
+  background: linear-gradient(135deg, rgb(244 63 94 / 0.26), rgb(190 24 93 / 0.16));
+}
+
+.cat-chip[data-cat="OW"].selected {
+  background: linear-gradient(135deg, rgb(255 140 40 / 0.32), rgb(255 78 26 / 0.22));
+  box-shadow: 0 0 22px rgb(255 112 40 / 0.45);
+}
+
 .cat-name {
   margin: 8px 0 0;
   min-height: 1.1em;

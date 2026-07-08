@@ -21,6 +21,7 @@ export function CategorySelect({
             aria-checked={c.code === value}
             aria-label={`${c.code} — ${c.name}`}
             title={`${c.code} — ${c.name}`}
+            data-cat={c.code}
             className={'cat-chip' + (c.code === value ? ' selected' : '')}
             onClick={() => onChange(c.code)}
           >
