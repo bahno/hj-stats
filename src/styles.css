@@ -182,25 +182,29 @@ body {
   box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.1);
 }
 
-/* Category tier grid: full-width stack (label above the control) so the chips
-   get real touch targets instead of being squeezed into the value column. */
-.field-stack {
-  display: block;
+/* Prestige pyramid: sits in the field's value column (the 90px label centres
+   vertically beside it). Each league is a centred row, the apex (OW) crowning the
+   top and the base tiers along the bottom. width:fit-content sizes the block to
+   the widest (3-chip) row; margin:auto centres the pyramid in the value column so
+   it lines up horizontally with the wheels above and below, and the shorter rows
+   centre over the wider rows below them. */
+.cat-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: fit-content;
+  margin: 0 auto;
 }
 
-.field-stack > span {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.cat-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+.cat-group {
+  display: flex;
+  justify-content: center;
   gap: 6px;
 }
 
 .cat-chip {
   appearance: none;
+  width: 56px;
   min-height: 44px;
   background: var(--bg);
   color: var(--muted);
@@ -439,64 +443,45 @@ body {
   letter-spacing: 0.08em;
 }
 
-/*
- * The crossbar: the page's one signature element. A high jump bar rests on
- * two standards — rendered here as a rule with ticked ends, sitting right
- * above the hero score. Keyed by the score value in JSX so it remounts (and
- * the clearance sweep replays) every time an input changes the result.
- */
-.bar-rule {
-  position: relative;
-  width: 100%;
-  max-width: 180px;
-  height: 14px;
-  margin: 0 auto 14px;
-  border-top: 2px solid rgb(var(--accent-rgb) / 0.55);
+.crossbar {
+  display: inline-block;
+  margin: 10px 0 6px;
+  padding: 0 18px;
 }
 
-.bar-rule::before,
-.bar-rule::after {
-  content: "";
-  position: absolute;
-  top: -1px;
-  width: 2px;
-  height: 14px;
-  background: rgb(var(--accent-rgb) / 0.55);
+.crossbar .score {
+  animation: clearance 1200ms cubic-bezier(0.22, 0.7, 0.2, 1);
 }
 
-.bar-rule::before {
-  left: 0;
+/* The crossbar the score has just cleared: a single glowing rule beneath the
+   number, run a touch wider than it so it reads as a bar, not an underline. */
+.crossbar .beam {
+  display: block;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 3px;
+  background: rgb(var(--accent-rgb) / 0.85);
+  box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.5);
+  animation: bar-glow 640ms ease-out;
 }
 
-.bar-rule::after {
-  right: 0;
-}
-
-.bar-rule .sweep {
-  position: absolute;
-  top: -4px;
-  left: -25%;
-  width: 25%;
-  height: 6px;
-  background: linear-gradient(90deg, transparent, rgb(var(--accent-rgb) / 0.9), transparent);
-  animation: bar-sweep 650ms ease-out forwards;
-}
-
-@keyframes bar-sweep {
-  from {
-    left: -25%;
-    opacity: 1;
+/* The bar flares as the score settles, then eases back to its resting glow. */
+@keyframes bar-glow {
+  0% {
+    box-shadow: 0 0 3px rgb(var(--accent-rgb) / 0.2);
   }
-  to {
-    left: 100%;
-    opacity: 0;
+  45% {
+    box-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.9);
+  }
+  100% {
+    box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.5);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bar-rule .sweep {
+  .crossbar::before,
+  .crossbar .score {
     animation: none;
-    display: none;
   }
 }
 
@@ -552,6 +537,18 @@ h2 {
 @media (max-width: 520px) {
   .field {
     grid-template-columns: 1fr;
+  }
+
+  /* Bigger chips and roomier gaps so the pyramid stays tappable on phones. */
+  .cat-chip {
+    width: 72px;
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .cat-groups,
+  .cat-group {
+    gap: 8px;
   }
 }
 
