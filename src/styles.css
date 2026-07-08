@@ -6,17 +6,18 @@
   --muted: #7c8b86;
   --accent: #2f5fe0;
   /* Gender-driven accent as space-separated RGB channels so highlights can add alpha. */
-  --accent-rgb: 47 95 224;
-  --men: #2f5fe0;
-  --women: #e0447a;
+  --accent-rgb: 59 130 246;
+  --men: #3b82f6;
+  --women: #ec4899;
   /* Outcome colours for the result simulator. */
-  --pos: #2fbf71;
-  --pos-rgb: 47 191 113;
-  --neg: #e5484d;
-  --neg-rgb: 229 72 77;
-  /* Display face for labels/headings; data face for every number on the page. */
-  --display: "Space Grotesk", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --pos: #3fb950;
+  --pos-rgb: 63 185 80;
+  --neg: #f85149;
+  /* Podium tints for 1st/2nd/3rd placements. */
+  --gold: #e0c068;
+  --silver: #c7cdd4;
+  --bronze: #cd8b5c;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
 * {
@@ -777,38 +778,9 @@ h2 {
   font-weight: 600;
 }
 
-/* Outcome, colour-coded: muted when unchanged, green up, red down. */
+/* Outcome, colour-coded on the numbers: muted when unchanged, green up, red down. */
 .sim-outcome {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.sim-status {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-family: var(--display);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.sim-outcome.flat .sim-status {
-  color: var(--muted);
-  background: rgb(255 255 255 / 0.05);
-}
-
-.sim-outcome.up .sim-status {
-  color: var(--pos);
-  background: rgb(var(--pos-rgb) / 0.14);
-}
-
-.sim-outcome.down .sim-status {
-  color: var(--neg);
-  background: rgb(var(--neg-rgb) / 0.14);
+  margin-top: 14px;
 }
 
 /* Each tile's value + delta take the tone of its own change. */
@@ -942,4 +914,30 @@ h2 {
   .simulate .field > span {
     margin-bottom: 4px;
   }
+}
+
+/* Podium tint for 1st/2nd/3rd placements, applied wherever a place is shown. */
+.place-1 {
+  color: var(--gold);
+}
+
+.place-2 {
+  color: var(--silver);
+}
+
+.place-3 {
+  color: var(--bronze);
+}
+
+/* Beat .wheel-item.selected's text colour so the podium tint still shows once dialed in. */
+.wheel-item.selected.place-1 {
+  color: var(--gold);
+}
+
+.wheel-item.selected.place-2 {
+  color: var(--silver);
+}
+
+.wheel-item.selected.place-3 {
+  color: var(--bronze);
 }

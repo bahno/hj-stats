@@ -1,4 +1,5 @@
 import { WheelPicker, type WheelOption } from './WheelPicker';
+import { placeClass } from '../placement';
 
 export function PositionSelect({
   value,
@@ -14,6 +15,7 @@ export function PositionSelect({
   const options: WheelOption[] = Array.from({ length: max }, (_, i) => ({
     value: i + 1,
     label: ordinal(i + 1),
+    className: placeClass(i + 1),
   }));
   return (
     <div className="field">

@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 export interface WheelOption {
   value: number;
   label: string;
+  className?: string;
 }
 
 const ITEM_HEIGHT = 36;
@@ -152,7 +153,11 @@ export function WheelPicker({
             key={o.value}
             role="option"
             aria-selected={i === index}
-            className={'wheel-item' + (i === index ? ' selected' : '')}
+            className={
+              'wheel-item' +
+              (i === index ? ' selected' : '') +
+              (o.className ? ` ${o.className}` : '')
+            }
             style={{ height: ITEM_HEIGHT }}
             onClick={() => onChange(o.value)}
           >

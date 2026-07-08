@@ -16,12 +16,6 @@ function delta(next: number, current: number, betterIsLower: boolean): { text: s
   return { text: `${improved ? '▲' : '▼'} ${Math.abs(d)}`, tone: improved ? 'up' : 'down' };
 }
 
-const STATUS: Record<Tone, string> = {
-  up: 'Ranking improves',
-  down: 'Ranking drops',
-  flat: 'No change to ranking',
-};
-
 export function SimulateResult({
   gender,
   baseScores,
@@ -56,14 +50,12 @@ export function SimulateResult({
     <div className="simulate">
       <div className="comps-label">Simulate a result</div>
       <div className="fields">
-        <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} />
+        <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} rows={3} />
         <CategorySelect categories={categories} value={category} onChange={setCategory} />
-        <PositionSelect value={place} onChange={setPlace} />
+        <PositionSelect value={place} onChange={setPlace} rows={3} />
       </div>
 
-      <div className={`sim-outcome ${scoreD.tone}`}>
-        <span className="sim-status">{STATUS[scoreD.tone]}</span>
-
+      <div className="sim-outcome">
         <p className="sim-note">
           This result scores <strong>{sim.simScore}</strong> (mark + placing).
           {sim.counts
