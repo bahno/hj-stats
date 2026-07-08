@@ -206,14 +206,6 @@ function Result({ found }: { found: Found }) {
         currentPlace={row.place}
         peerScores={peerScores}
       />
-
-      <SimulateResult
-        gender={gender}
-        baseScores={baseScores}
-        currentScore={row.rankingScore}
-        currentPlace={row.place}
-        peerScores={peerScores}
-      />
     </div>
   );
 }
