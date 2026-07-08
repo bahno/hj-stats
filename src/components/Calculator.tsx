@@ -29,7 +29,7 @@ export function Calculator() {
   );
 
   return (
-    <section className={`card ${gender}`}>
+    <section className={`card calc ${gender}`}>
       <div className="fields">
         <GenderToggle value={gender} onChange={handleGender} />
         <HeightSelect marks={marks} value={effectiveHeight} onChange={setHeight} />
@@ -40,7 +40,7 @@ export function Calculator() {
         <div className="score-label">Ranking Score</div>
         <div className="score" data-testid="ranking-score">{score.total}</div>
         <div className="breakdown" data-testid="breakdown">
-          Performance {score.performance} · Placing {score.placing}
+          Performance {score.performance} Placing {score.placing}
         </div>
       </div>
     </section>

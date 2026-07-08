@@ -4,10 +4,12 @@ export function PositionSelect({
   value,
   onChange,
   max = 16,
+  rows,
 }: {
   value: number;
   onChange: (p: number) => void;
   max?: number;
+  rows?: number;
 }) {
   const options: WheelOption[] = Array.from({ length: max }, (_, i) => ({
     value: i + 1,
@@ -16,7 +18,7 @@ export function PositionSelect({
   return (
     <div className="field">
       <span>Position</span>
-      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Position" />
+      <WheelPicker options={options} value={value} onChange={onChange} ariaLabel="Position" rows={rows} />
     </div>
   );
 }
