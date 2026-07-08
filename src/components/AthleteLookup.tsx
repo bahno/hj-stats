@@ -32,8 +32,6 @@ interface Found {
   calc: RankingCalculation;
   peers: RankingRow[];
   gender: Gender;
-  peers: RankingRow[];
-  gender: Gender;
 }
 
 export function AthleteLookup() {
@@ -60,11 +58,6 @@ export function AthleteLookup() {
     setCandidates([]);
     setFound(null);
     try {
-      const [calc, list] = await Promise.all([
-        fetchRankingCalculation(row.id),
-        ranking(gender),
-      ]);
-      setFound({ row, calc, peers: list.rows, gender });
       const [calc, list] = await Promise.all([
         fetchRankingCalculation(row.id),
         ranking(gender),
@@ -103,7 +96,6 @@ export function AthleteLookup() {
   }
 
   return (
-    <section className={`card lookup ${gender}`}>
     <section className={`card lookup ${gender}`}>
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={setGender} />
@@ -155,10 +147,7 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 
 function Result({ found }: { found: Found }) {
   const { row, calc, peers, gender } = found;
-  const { row, calc, peers, gender } = found;
   const results = calc.results;
-  const baseScores = results.map((r) => r.performanceScore);
-  const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
