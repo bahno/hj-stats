@@ -35,13 +35,17 @@ export function WheelPicker({
   value,
   onChange,
   ariaLabel,
+  rows,
 }: {
   options: WheelOption[];
   value: number;
   onChange: (value: number) => void;
   ariaLabel?: string;
+  /** Force a fixed visible-row count (odd) instead of the responsive default. */
+  rows?: number;
 }) {
-  const VISIBLE = useVisibleRows();
+  const responsiveRows = useVisibleRows();
+  const VISIBLE = rows ?? responsiveRows;
   const scrollRef = useRef<HTMLDivElement>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout>>();
   // True while we are scrolling programmatically to reflect an external value

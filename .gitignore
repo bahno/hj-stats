@@ -1,5 +1,7 @@
 # Claude Code local settings
 .claude/settings.local.json
+# Ephemeral agent git worktrees
+.claude/worktrees/
 
 # OS / editor
 .DS_Store
