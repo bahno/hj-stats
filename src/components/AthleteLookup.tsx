@@ -7,6 +7,7 @@ import {
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import { GenderToggle } from './inputs/GenderToggle';
+import { SimulateResult } from './SimulateResult';
 
 function normalize(s: string): string {
   return s
@@ -28,6 +29,8 @@ function matches(query: string, athlete: string): boolean {
 interface Found {
   row: RankingRow;
   calc: RankingCalculation;
+  peers: RankingRow[];
+  gender: Gender;
 }
 
 export function AthleteLookup() {
@@ -54,8 +57,11 @@ export function AthleteLookup() {
     setCandidates([]);
     setFound(null);
     try {
-      const calc = await fetchRankingCalculation(row.id);
-      setFound({ row, calc });
+      const [calc, list] = await Promise.all([
+        fetchRankingCalculation(row.id),
+        ranking(gender),
+      ]);
+      setFound({ row, calc, peers: list.rows, gender });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -89,7 +95,7 @@ export function AthleteLookup() {
   }
 
   return (
-    <section className={`card ${gender}`}>
+    <section className={`card lookup ${gender}`}>
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={setGender} />
         <label className="field">
@@ -139,8 +145,10 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 function Result({ found }: { found: Found }) {
-  const { row, calc } = found;
+  const { row, calc, peers, gender } = found;
   const results = calc.results;
+  const baseScores = results.map((r) => r.performanceScore);
+  const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
 
@@ -189,6 +197,14 @@ function Result({ found }: { found: Found }) {
           ))}
         </ul>
       </div>
+
+      <SimulateResult
+        gender={gender}
+        baseScores={baseScores}
+        currentScore={row.rankingScore}
+        currentPlace={row.place}
+        peerScores={peerScores}
+      />
     </div>
   );
 }

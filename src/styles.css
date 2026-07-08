@@ -9,6 +9,10 @@
   --accent-rgb: 59 130 246;
   --men: #3b82f6;
   --women: #ec4899;
+  /* Outcome colours for the result simulator. */
+  --pos: #3fb950;
+  --pos-rgb: 63 185 80;
+  --neg: #f85149;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
@@ -663,4 +667,151 @@ h2 {
 .lookup-note strong {
   color: var(--text);
   font-weight: 600;
+}
+
+/* Simulate-a-result: a separated panel inside the ranking lookup */
+.simulate {
+  margin-top: 22px;
+  padding: 16px;
+  background: rgb(255 255 255 / 0.02);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.simulate .fields {
+  margin-top: 12px;
+}
+
+.sim-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.sim-note strong {
+  color: rgb(var(--accent-rgb));
+  font-weight: 600;
+}
+
+/* Outcome, colour-coded: muted when unchanged, green up, red down. */
+.sim-outcome {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.sim-status {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sim-outcome.flat .sim-status {
+  color: var(--muted);
+  background: rgb(255 255 255 / 0.05);
+}
+
+.sim-outcome.up .sim-status {
+  color: var(--pos);
+  background: rgb(var(--pos-rgb) / 0.14);
+}
+
+.sim-outcome.down .sim-status {
+  color: var(--neg);
+  background: rgb(248 81 73 / 0.14);
+}
+
+/* Each tile's value + delta take the tone of its own change. */
+.simulate .stat.flat .stat-value {
+  color: var(--muted);
+}
+
+.simulate .stat.up .stat-value {
+  color: var(--pos);
+}
+
+.simulate .stat.down .stat-value {
+  color: var(--neg);
+}
+
+.stat-delta.flat {
+  color: var(--muted);
+}
+
+.stat-delta.up {
+  color: var(--pos);
+}
+
+.stat-delta.down {
+  color: var(--neg);
+}
+
+/* --- Desktop layouts: wider cards, multi-column (phone stays single-column) --- */
+@media (min-width: 760px) {
+  .nav {
+    max-width: 460px;
+  }
+
+  /* Calculator: inputs on the left, the score as a side panel on the right. */
+  .card.calc {
+    max-width: 660px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 230px;
+    gap: 36px;
+    align-items: center;
+  }
+
+  .card.calc .fields {
+    align-self: start;
+  }
+
+  .card.calc .result {
+    margin-top: 0;
+    padding: 0 0 0 36px;
+    border-top: none;
+    border-left: 1px solid var(--line);
+  }
+
+  .card.calc .score {
+    font-size: 3.4rem;
+  }
+
+  /* Rankings: search stays compact; the result splits into two columns
+     (counting competitions on the left, the simulator on the right). */
+  .card.lookup {
+    max-width: 840px;
+  }
+
+  .card.lookup > form.fields {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  .lookup-result {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 36px;
+    align-items: start;
+  }
+
+  .lookup-head,
+  .lookup-stats {
+    grid-column: 1 / -1;
+  }
+
+  .lookup-comps {
+    grid-column: 1;
+  }
+
+  .simulate {
+    grid-column: 2;
+    margin-top: 0;
+    align-self: start;
+  }
 }

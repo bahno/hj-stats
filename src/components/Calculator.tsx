@@ -29,7 +29,7 @@ export function Calculator() {
   );
 
   return (
-    <section className={`card ${gender}`}>
+    <section className={`card calc ${gender}`}>
       <div className="fields">
         <GenderToggle value={gender} onChange={handleGender} />
         <HeightSelect marks={marks} value={effectiveHeight} onChange={setHeight} />
