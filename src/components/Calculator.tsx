@@ -38,6 +38,9 @@ export function Calculator() {
       </div>
       <div className="result">
         <div className="score-label">Ranking Score</div>
+        <div className="bar-rule" key={score.total}>
+          <span className="sweep" />
+        </div>
         <div className="score" data-testid="ranking-score">{score.total}</div>
         <div className="breakdown" data-testid="breakdown">
           Performance {score.performance} Placing {score.placing}
