@@ -20,7 +20,7 @@ function AccountSlot({
   if (user) {
     return (
       <button type="button" className="nav-account-btn" onClick={onOpenAccount}>
-        {user.email}
+        Account
       </button>
     );
   }

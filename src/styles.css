@@ -13,6 +13,7 @@
   --pos: #3fb950;
   --pos-rgb: 63 185 80;
   --neg: #f85149;
+  --neg-rgb: 248 81 73;
   /* Podium tints for 1st/2nd/3rd placements. */
   --gold: #e0c068;
   --silver: #c7cdd4;
@@ -1052,34 +1053,66 @@ h2 {
 }
 .account-actions {
   display: flex;
-  justify-content: space-between;
-  margin-top: 0.5rem;
+  gap: 10px;
+  margin-top: 8px;
 }
-.account-delete {
-  background: none;
-  border: none;
-  color: #c0392b;
-  text-decoration: underline;
+/* Secondary (ghost) and danger buttons, styled to match .lookup-btn. */
+.btn-ghost,
+.btn-danger {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-size: 0.85rem;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
+.btn-ghost:hover {
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+.btn-danger {
+  border: 1px solid rgb(var(--neg-rgb) / 0.45);
+  background: rgb(var(--neg-rgb) / 0.12);
+  color: #ff9d97;
+}
+.btn-danger:hover {
+  background: rgb(var(--neg-rgb) / 0.2);
+  box-shadow: 0 0 14px rgb(var(--neg-rgb) / 0.22);
 }
 
 /* --- Nav account slot --- */
 .nav-account {
+  display: flex;
+  align-items: center;
   margin-left: auto;
 }
+/* Quiet pill that echoes the nav tabs (uppercase, muted, brightens on hover). */
 .nav-account-btn {
-  background: none;
-  border: 1px solid currentColor;
+  background: transparent;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 0.25rem 0.75rem;
+  padding: 5px 14px;
   cursor: pointer;
-  color: inherit;
-  font-size: 0.85rem;
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.nav-account-btn:hover {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+}
+.nav-account-btn:focus-visible {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.5);
 }
 
 /* --- Favorites --- */
@@ -1087,22 +1120,44 @@ h2 {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1rem;
-  color: #e0a800;
+  font-size: 1.15rem;
   line-height: 1;
+  color: var(--muted);
+  padding: 0 2px;
+  transition: color 0.15s ease;
 }
+.fav-star:hover,
+.fav-star.on {
+  color: var(--gold);
+}
+/* Saved-athlete shortcuts. A quiet divider ties the row to the card above the
+   search form, and chips inherit the card's gender accent (--accent-rgb). */
 .fav-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
 }
 .fav-chip {
-  background: none;
-  border: 1px solid currentColor;
+  display: inline-block;
+  max-width: 13rem;
+  padding: 4px 11px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.28);
   border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+  background: rgb(var(--accent-rgb) / 0.1);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.5;
   cursor: pointer;
-  color: inherit;
-  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.fav-chip:hover {
+  background: rgb(var(--accent-rgb) / 0.18);
+  border-color: rgb(var(--accent-rgb) / 0.5);
 }

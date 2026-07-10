@@ -81,10 +81,10 @@ export function AccountPage() {
       {message && <p className="lookup-msg">{message}</p>}
 
       <div className="account-actions">
-        <button type="button" className="auth-switch" onClick={() => signOut()}>
+        <button type="button" className="btn-ghost" onClick={() => signOut()}>
           Sign out
         </button>
-        <button type="button" className="account-delete" onClick={deleteAccount}>
+        <button type="button" className="btn-danger" onClick={deleteAccount}>
           Delete account
         </button>
       </div>
