@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { AccountPage } from './auth/AccountPage';
 import { isAuthEnabled } from './lib/supabase';
+import { FavoritesProvider } from './hooks/FavoritesContext';
 
 function AccountSlot({
   onOpenAccount,
@@ -64,7 +65,9 @@ function Shell() {
 export default function App() {
   return (
     <AuthProvider>
-      <Shell />
+      <FavoritesProvider>
+        <Shell />
+      </FavoritesProvider>
     </AuthProvider>
   );
 }

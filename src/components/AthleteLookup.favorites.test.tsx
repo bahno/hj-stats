@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ user: mocks.user.current }),
 }));
-vi.mock('../hooks/useFavorites', () => ({
+vi.mock('../hooks/FavoritesContext', () => ({
   useFavorites: () => ({
     favorites: mocks.favorites.current,
     isFavorite: () => false,

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { Gender } from '../data/types';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -10,7 +18,16 @@ import {
 
 type NewFavorite = { athlete_slug: string; athlete_name: string; gender: Gender };
 
-export function useFavorites() {
+interface FavoritesValue {
+  favorites: Favorite[];
+  loading: boolean;
+  isFavorite: (slug: string, gender: Gender) => boolean;
+  toggle: (fav: NewFavorite) => Promise<void>;
+}
+
+const FavoritesContext = createContext<FavoritesValue | null>(null);
+
+export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,5 +88,16 @@ export function useFavorites() {
     [user, favorites],
   );
 
-  return { favorites, loading, isFavorite, toggle };
+  const value = useMemo<FavoritesValue>(
+    () => ({ favorites, loading, isFavorite, toggle }),
+    [favorites, loading, isFavorite, toggle],
+  );
+
+  return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;
+}
+
+export function useFavorites(): FavoritesValue {
+  const ctx = useContext(FavoritesContext);
+  if (!ctx) throw new Error('useFavorites must be used within a FavoritesProvider');
+  return ctx;
 }

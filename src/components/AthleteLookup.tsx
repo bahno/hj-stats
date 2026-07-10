@@ -9,7 +9,7 @@ import {
 import { GenderToggle } from './inputs/GenderToggle';
 import { SimulateResult } from './SimulateResult';
 import { placeClass } from './placement';
-import { useFavorites } from '../hooks/useFavorites';
+import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../hooks/usePreferences';
 
@@ -174,7 +174,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result found={found} />}
+      {found && <Result found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
     </section>
   );
 }
@@ -187,7 +187,7 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
   return `${improved ? '▲' : '▼'} ${Math.abs(d)}`;
 }
 
-function Result({ found }: { found: Found }) {
+function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
   const { row, calc, peers, gender } = found;
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
@@ -204,7 +204,7 @@ function Result({ found }: { found: Found }) {
           slug={row.athleteUrlSlug}
           name={row.athlete}
           gender={gender}
-          onNeedSignIn={() => {}}
+          onNeedSignIn={onNeedSignIn}
         />
       </div>
 

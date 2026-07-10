@@ -18,7 +18,7 @@ vi.mock('../data/userData', () => ({
   removeFavorite: mocks.removeFavorite,
 }));
 
-import { useFavorites } from './useFavorites';
+import { FavoritesProvider, useFavorites } from './FavoritesContext';
 
 let toggleFn: (f: any) => Promise<void>;
 function Probe() {
@@ -42,7 +42,11 @@ test('loads favorites for the signed-in user', async () => {
   mocks.listFavorites.mockResolvedValue([
     { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Tamberi', gender: 'men' },
   ]);
-  render(<Probe />);
+  render(
+    <FavoritesProvider>
+      <Probe />
+    </FavoritesProvider>,
+  );
   await waitFor(() => expect(screen.getByText('count:1 fav:true')).toBeInTheDocument());
 });
 
@@ -53,7 +57,11 @@ test('toggle adds a favorite optimistically', async () => {
     athlete_name: 'Tamberi',
     gender: 'men',
   });
-  render(<Probe />);
+  render(
+    <FavoritesProvider>
+      <Probe />
+    </FavoritesProvider>,
+  );
   await waitFor(() => expect(screen.getByText('count:0 fav:false')).toBeInTheDocument());
   await act(async () => {
     await toggleFn({ athlete_slug: 'tamberi', athlete_name: 'Tamberi', gender: 'men' });

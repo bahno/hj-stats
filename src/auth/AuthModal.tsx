@@ -22,11 +22,11 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email.trim(), password);
         if (error) setError(error.message);
         else onClose();
       } else {
-        const { error, needsConfirmation } = await signUp(email, password);
+        const { error, needsConfirmation } = await signUp(email.trim(), password);
         if (error) setError(error.message);
         else if (needsConfirmation) setConfirmSent(true);
         else onClose();
