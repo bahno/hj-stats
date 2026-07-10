@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   type Gender,
   type RankingCalculation,
@@ -11,6 +11,7 @@ import { SimulateResult } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/useFavorites';
 import { useAuth } from '../auth/AuthContext';
+import { usePreferences } from '../hooks/usePreferences';
 
 function normalize(s: string): string {
   return s
@@ -46,6 +47,11 @@ export function AthleteLookup() {
   const { user } = useAuth();
   const { favorites } = useFavorites();
   const [needSignIn, setNeedSignIn] = useState(false);
+  const { defaultGender } = usePreferences();
+  useEffect(() => {
+    if (defaultGender) setGender(defaultGender);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultGender]);
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
   const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());

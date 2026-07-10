@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CategoryCode, Gender } from '../data/types';
 import { categories, placingPoints, scoringTable } from '../engine/data';
 import { availableMarks, defaultHeightFor } from '../engine/marks';
 import { resultScore } from '../engine/score';
+import { usePreferences } from '../hooks/usePreferences';
 import { GenderToggle } from './inputs/GenderToggle';
 import { HeightSelect } from './inputs/HeightSelect';
 import { CategorySelect } from './inputs/CategorySelect';
@@ -14,6 +15,17 @@ export function Calculator() {
   const [position, setPosition] = useState(1);
   const [height, setHeight] = useState(() => defaultHeightFor(scoringTable, 'men'));
 
+  const { defaultGender, setDefaultGender } = usePreferences();
+
+  // Adopt the saved preference once it loads (only if the user hasn't overridden).
+  useEffect(() => {
+    if (defaultGender && defaultGender !== gender) {
+      setGender(defaultGender);
+      setHeight(defaultHeightFor(scoringTable, defaultGender));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultGender]);
+
   const marks = useMemo(() => availableMarks(scoringTable, gender), [gender]);
   const effectiveHeight = marks.includes(height)
     ? height
@@ -22,6 +34,7 @@ export function Calculator() {
   function handleGender(next: Gender) {
     setGender(next);
     setHeight(defaultHeightFor(scoringTable, next));
+    void setDefaultGender(next).catch(() => {});
   }
 
   const score = resultScore(
