@@ -39,3 +39,12 @@ test('saves an edited display name', async () => {
     expect(mocks.updateProfile).toHaveBeenCalledWith('u1', { display_name: 'Gianmarco' }),
   );
 });
+
+test('saves the default gender when toggled', async () => {
+  render(<AccountPage />);
+  const toggle = await screen.findByRole('switch', { name: 'Default gender' });
+  fireEvent.click(toggle); // men -> women
+  await waitFor(() =>
+    expect(mocks.updateProfile).toHaveBeenCalledWith('u1', { default_gender: 'women' }),
+  );
+});

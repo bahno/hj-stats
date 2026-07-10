@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import type { Gender } from '../data/types';
 import { useAuth } from './AuthContext';
 import { getProfile, updateProfile } from '../data/userData';
+import { usePreferences } from '../hooks/usePreferences';
+import { GenderToggle } from '../components/inputs/GenderToggle';
 import { supabase } from '../lib/supabase';
 
 export function AccountPage() {
   const { user, signOut } = useAuth();
+  const { defaultGender, setDefaultGender } = usePreferences();
   const [displayName, setDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -23,6 +27,16 @@ export function AccountPage() {
       setMessage('Profile saved.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Save failed.');
+    }
+  }
+
+  async function saveDefaultGender(g: Gender) {
+    setMessage('');
+    try {
+      await setDefaultGender(g);
+      setMessage('Default gender saved.');
+    } catch {
+      setMessage('Could not save default gender.');
     }
   }
 
@@ -63,6 +77,12 @@ export function AccountPage() {
       <button className="lookup-btn" type="button" onClick={saveProfile}>
         Save profile
       </button>
+
+      <GenderToggle
+        label="Default gender"
+        value={defaultGender ?? 'men'}
+        onChange={saveDefaultGender}
+      />
 
       <label className="field">
         <span>New password</span>

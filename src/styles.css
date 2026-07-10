@@ -1157,6 +1157,14 @@ h2 {
   vertical-align: middle;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+/* Colour each chip by the favourite's OWN gender, not the current lookup
+   selection (matches the card accents in .card.men / .card.women). */
+.fav-chip.men {
+  --accent-rgb: 47 95 224;
+}
+.fav-chip.women {
+  --accent-rgb: 224 68 122;
+}
 .fav-chip:hover {
   background: rgb(var(--accent-rgb) / 0.18);
   border-color: rgb(var(--accent-rgb) / 0.5);

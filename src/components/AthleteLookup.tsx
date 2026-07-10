@@ -118,7 +118,7 @@ export function AthleteLookup() {
             <button
               key={f.id}
               type="button"
-              className="fav-chip"
+              className={`fav-chip ${f.gender}`}
               onClick={() => {
                 setGender(f.gender);
                 setQuery(f.athlete_name);
