@@ -74,7 +74,7 @@ export function AccountPage() {
           onChange={(e) => setDisplayName(e.target.value)}
         />
       </label>
-      <button className="lookup-btn" type="button" onClick={saveProfile}>
+      <button className="btn-ghost" type="button" onClick={saveProfile}>
         Save profile
       </button>
 
@@ -94,7 +94,7 @@ export function AccountPage() {
           onChange={(e) => setNewPassword(e.target.value)}
         />
       </label>
-      <button className="lookup-btn" type="button" onClick={changePassword}>
+      <button className="btn-ghost" type="button" onClick={changePassword}>
         Change password
       </button>
 

@@ -73,7 +73,7 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-.nav button {
+.nav > button {
   flex: none;
   background: transparent;
   color: var(--muted);
@@ -90,16 +90,16 @@ body {
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.nav button:hover {
+.nav > button:hover {
   color: var(--text);
 }
 
-.nav button.active {
+.nav > button.active {
   color: var(--text);
   border-bottom-color: rgb(var(--accent-rgb));
 }
 
-.nav button:focus-visible {
+.nav > button:focus-visible {
   color: var(--text);
   box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.35);
   border-radius: 4px;
@@ -1056,15 +1056,19 @@ h2 {
   gap: 10px;
   margin-top: 8px;
 }
-/* Secondary (ghost) and danger buttons, styled to match .lookup-btn. */
+/* Subtle secondary (ghost) and danger buttons for the settings page. */
 .btn-ghost,
 .btn-danger {
-  flex: 1;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* In the sign-out / delete row they share the width equally. */
+.account-actions .btn-ghost,
+.account-actions .btn-danger {
+  flex: 1;
 }
 .btn-ghost {
   border: 1px solid var(--line);
