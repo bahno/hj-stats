@@ -7,6 +7,10 @@
 .DS_Store
 Thumbs.db
 
+# Env
+.env.local
+.env.*.local
+
 # Dependencies / build output (uncomment as needed once you add a framework)
 node_modules/
 dist/
