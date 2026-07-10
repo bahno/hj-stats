@@ -1081,3 +1081,28 @@ h2 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- Favorites --- */
+.fav-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: #e0a800;
+  line-height: 1;
+}
+.fav-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.fav-chip {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.8rem;
+}

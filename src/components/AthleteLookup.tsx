@@ -9,6 +9,8 @@ import {
 import { GenderToggle } from './inputs/GenderToggle';
 import { SimulateResult } from './SimulateResult';
 import { placeClass } from './placement';
+import { useFavorites } from '../hooks/useFavorites';
+import { useAuth } from '../auth/AuthContext';
 
 function normalize(s: string): string {
   return s
@@ -41,6 +43,9 @@ export function AthleteLookup() {
   const [message, setMessage] = useState('');
   const [candidates, setCandidates] = useState<RankingRow[]>([]);
   const [found, setFound] = useState<Found | null>(null);
+  const { user } = useAuth();
+  const { favorites } = useFavorites();
+  const [needSignIn, setNeedSignIn] = useState(false);
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
   const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());
@@ -97,6 +102,26 @@ export function AthleteLookup() {
 
   return (
     <section className={`card lookup ${gender}`}>
+      {user && favorites.length > 0 && (
+        <div className="fav-strip">
+          {favorites.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className="fav-chip"
+              onClick={() => {
+                setGender(f.gender);
+                setQuery(f.athlete_name);
+              }}
+            >
+              ★ {f.athlete_name}
+            </button>
+          ))}
+        </div>
+      )}
+      {needSignIn && (
+        <p className="lookup-msg">Sign in to save favorites.</p>
+      )}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={setGender} />
         <label className="field">
@@ -127,6 +152,12 @@ export function AthleteLookup() {
                   {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
                 </span>
               </button>
+              <FavoriteStar
+                slug={c.athleteUrlSlug}
+                name={c.athlete}
+                gender={gender}
+                onNeedSignIn={() => setNeedSignIn(true)}
+              />
             </li>
           ))}
         </ul>
@@ -158,6 +189,12 @@ function Result({ found }: { found: Found }) {
       <div className="lookup-head">
         <div className="lookup-name">{row.athlete}</div>
         <div className="muted">{row.nationality} · High Jump</div>
+        <FavoriteStar
+          slug={row.athleteUrlSlug}
+          name={row.athlete}
+          gender={gender}
+          onNeedSignIn={() => {}}
+        />
       </div>
 
       <div className="lookup-stats">
@@ -207,5 +244,35 @@ function Result({ found }: { found: Found }) {
         peerScores={peerScores}
       />
     </div>
+  );
+}
+
+function FavoriteStar({
+  slug,
+  name,
+  gender,
+  onNeedSignIn,
+}: {
+  slug: string;
+  name: string;
+  gender: Gender;
+  onNeedSignIn: () => void;
+}) {
+  const { user } = useAuth();
+  const { isFavorite, toggle } = useFavorites();
+  const active = isFavorite(slug, gender);
+  return (
+    <button
+      type="button"
+      className={`fav-star ${active ? 'on' : ''}`}
+      aria-pressed={active}
+      aria-label={active ? 'Remove favorite' : 'Add favorite'}
+      onClick={() => {
+        if (!user) return onNeedSignIn();
+        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => {});
+      }}
+    >
+      {active ? '★' : '☆'}
+    </button>
   );
 }
