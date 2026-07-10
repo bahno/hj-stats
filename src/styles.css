@@ -42,6 +42,7 @@ body {
 }
 
 .app {
+  position: relative;
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px 64px;
@@ -1051,72 +1052,87 @@ h2 {
 .account-email {
   font-size: 0.9rem;
 }
-.account-actions {
+/* A text input with a compact action button beside it (Save / Update). */
+.field-row {
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 8px;
+  align-items: stretch;
 }
-/* Subtle secondary (ghost) and danger buttons for the settings page. */
-.btn-ghost,
-.btn-danger {
-  padding: 9px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-/* In the sign-out / delete row they share the width equally. */
-.account-actions .btn-ghost,
-.account-actions .btn-danger {
+.field-row .text-input {
   flex: 1;
+  min-width: 0;
 }
-.btn-ghost {
+.btn-inline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: transparent;
-  color: var(--text);
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.btn-ghost:hover {
+.btn-inline:hover {
+  color: var(--text);
   border-color: rgb(var(--accent-rgb) / 0.5);
   background: rgb(var(--accent-rgb) / 0.08);
 }
-.btn-danger {
-  border: 1px solid rgb(var(--neg-rgb) / 0.45);
-  background: rgb(var(--neg-rgb) / 0.12);
-  color: #ff9d97;
+.btn-inline.danger {
+  color: #d98a86;
 }
-.btn-danger:hover {
-  background: rgb(var(--neg-rgb) / 0.2);
-  box-shadow: 0 0 14px rgb(var(--neg-rgb) / 0.22);
+.btn-inline.danger:hover {
+  color: #ff9d97;
+  border-color: rgb(var(--neg-rgb) / 0.5);
+  background: rgb(var(--neg-rgb) / 0.12);
+}
+/* Destructive / session actions, set off from the settings above by a divider. */
+.account-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 
-/* --- Nav account slot --- */
-.nav-account {
-  display: flex;
+/* --- Account control (top-right corner) --- */
+.account-corner {
+  position: absolute;
+  top: 20px;
+  right: 16px;
+  z-index: 5;
+}
+/* Circular user-icon button. Muted when signed out, accented when signed in. */
+.account-icon-btn {
+  display: inline-flex;
   align-items: center;
-  margin-left: auto;
-}
-/* Quiet pill that echoes the nav tabs (uppercase, muted, brightens on hover). */
-.nav-account-btn {
-  background: transparent;
-  border: 1px solid var(--line);
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
-  padding: 5px 14px;
-  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
   color: var(--muted);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.nav-account-btn:hover {
+.account-icon-btn:hover {
   color: var(--text);
   border-color: rgb(var(--accent-rgb) / 0.5);
+  background: rgb(var(--accent-rgb) / 0.08);
 }
-.nav-account-btn:focus-visible {
+.account-icon-btn.on {
   color: var(--text);
-  border-color: rgb(var(--accent-rgb) / 0.5);
+  border-color: rgb(var(--accent-rgb) / 0.35);
+}
+.account-icon-btn.active {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.6);
+  background: rgb(var(--accent-rgb) / 0.12);
 }
 
 /* --- Favorites --- */

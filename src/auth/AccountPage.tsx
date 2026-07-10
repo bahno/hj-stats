@@ -68,15 +68,17 @@ export function AccountPage() {
 
       <label className="field">
         <span>Display name</span>
-        <input
-          className="text-input"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-        />
+        <div className="field-row">
+          <input
+            className="text-input"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+          <button className="btn-inline" type="button" onClick={saveProfile}>
+            Save
+          </button>
+        </div>
       </label>
-      <button className="btn-ghost" type="button" onClick={saveProfile}>
-        Save profile
-      </button>
 
       <GenderToggle
         label="Default gender"
@@ -86,25 +88,27 @@ export function AccountPage() {
 
       <label className="field">
         <span>New password</span>
-        <input
-          className="text-input"
-          type="password"
-          autoComplete="new-password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
+        <div className="field-row">
+          <input
+            className="text-input"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <button className="btn-inline" type="button" onClick={changePassword}>
+            Update
+          </button>
+        </div>
       </label>
-      <button className="btn-ghost" type="button" onClick={changePassword}>
-        Change password
-      </button>
 
       {message && <p className="lookup-msg">{message}</p>}
 
       <div className="account-actions">
-        <button type="button" className="btn-ghost" onClick={() => signOut()}>
+        <button type="button" className="btn-inline" onClick={() => signOut()}>
           Sign out
         </button>
-        <button type="button" className="btn-danger" onClick={deleteAccount}>
+        <button type="button" className="btn-inline danger" onClick={deleteAccount}>
           Delete account
         </button>
       </div>

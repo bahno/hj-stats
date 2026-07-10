@@ -24,3 +24,6 @@ __pycache__/
 
 # Playwright artifacts
 .playwright-mcp/
+
+# Supabase CLI local state
+**/.temp/

@@ -34,7 +34,7 @@ test('saves an edited display name', async () => {
   render(<AccountPage />);
   await waitFor(() => expect(screen.getByDisplayValue('Gia')).toBeInTheDocument());
   fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Gianmarco' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(mocks.updateProfile).toHaveBeenCalledWith('u1', { display_name: 'Gianmarco' }),
   );

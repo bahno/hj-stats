@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 export type View = 'calculator' | 'rankings' | 'account';
 
 const TABS: { id: View; label: string }[] = [
@@ -7,15 +5,7 @@ const TABS: { id: View; label: string }[] = [
   { id: 'rankings', label: 'Rankings' },
 ];
 
-export function Nav({
-  value,
-  onChange,
-  account,
-}: {
-  value: View;
-  onChange: (v: View) => void;
-  account: ReactNode;
-}) {
+export function Nav({ value, onChange }: { value: View; onChange: (v: View) => void }) {
   return (
     <nav className="nav" role="tablist" aria-label="View">
       {TABS.map((t) => (
@@ -29,7 +19,6 @@ export function Nav({
           {t.label}
         </button>
       ))}
-      <div className="nav-account">{account}</div>
     </nav>
   );
 }
