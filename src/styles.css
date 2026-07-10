@@ -998,3 +998,45 @@ h2 {
 .wheel-item.selected.place-3 {
   color: var(--bronze);
 }
+
+/* --- Auth modal --- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 1rem;
+}
+.modal {
+  position: relative;
+  width: min(24rem, 100%);
+}
+.modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+}
+.auth-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+.auth-switch {
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.auth-notice {
+  margin: 0;
+  line-height: 1.5;
+}
