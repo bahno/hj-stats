@@ -1063,3 +1063,21 @@ h2 {
   cursor: pointer;
   font-size: 0.85rem;
 }
+
+/* --- Nav account slot --- */
+.nav-account {
+  margin-left: auto;
+}
+.nav-account-btn {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.85rem;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
