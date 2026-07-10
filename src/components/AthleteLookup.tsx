@@ -58,16 +58,16 @@ export function AthleteLookup() {
     return data;
   }
 
-  async function select(row: RankingRow) {
+  async function select(row: RankingRow, g: Gender) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
     try {
       const [calc, list] = await Promise.all([
         fetchRankingCalculation(row.id),
-        ranking(gender),
+        ranking(g),
       ]);
-      setFound({ row, calc, peers: list.rows, gender });
+      setFound({ row, calc, peers: list.rows, gender: g });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -75,21 +75,19 @@ export function AthleteLookup() {
     }
   }
 
-  async function search(e: FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  async function runLookup(q: string, g: Gender) {
     setStatus('loading');
     setMessage('');
     setFound(null);
     setCandidates([]);
     try {
-      const { rows } = await ranking(gender);
-      const hits = rows.filter((r) => matches(query, r.athlete));
+      const { rows } = await ranking(g);
+      const hits = rows.filter((r) => matches(q, r.athlete));
       if (hits.length === 0) {
         setStatus('error');
-        setMessage(`No ${gender}'s high-jumper matching "${query}" in the current ranking.`);
+        setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking.`);
       } else if (hits.length === 1) {
-        await select(hits[0]);
+        await select(hits[0], g);
       } else {
         setCandidates(hits.slice(0, 12));
         setStatus('idle');
@@ -98,6 +96,12 @@ export function AthleteLookup() {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Ranking fetch failed');
     }
+  }
+
+  async function search(e: FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+    await runLookup(query, gender);
   }
 
   return (
@@ -112,6 +116,7 @@ export function AthleteLookup() {
               onClick={() => {
                 setGender(f.gender);
                 setQuery(f.athlete_name);
+                void runLookup(f.athlete_name, f.gender);
               }}
             >
               ★ {f.athlete_name}
@@ -146,7 +151,7 @@ export function AthleteLookup() {
         <ul className="lookup-candidates">
           {candidates.map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => select(c)}>
+              <button type="button" onClick={() => select(c, gender)}>
                 <span>{c.athlete}</span>
                 <span className="muted">
                   {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
