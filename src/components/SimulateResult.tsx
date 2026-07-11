@@ -42,6 +42,7 @@ export function SimulateResult({
   baseScores,
   currentScore,
   currentPlace,
+  currentWorldPlace,
   peerScores,
   road,
   source,
@@ -51,6 +52,7 @@ export function SimulateResult({
   baseScores: number[];
   currentScore: number;
   currentPlace: number; // current European place
+  currentWorldPlace: number; // current World place
   peerScores: number[]; // European peers' ranking scores (self excluded)
   road?: RoadSimData;
   source: Source;
@@ -84,8 +86,8 @@ export function SimulateResult({
         );
         const qualifies = withinWorldRankingQuota(road!.peerScores, sim.newScore, road!.worldRankingSlots);
         return {
-          label: 'New Birmingham position',
-          value: `#${newPosition} of ${road!.entryNumber}`,
+          label: 'Position',
+          value: `#${newPosition}`,
           note: qualifies ? 'Qualifying' : 'Not qualifying',
           delta: delta(newPosition, currentPosition, true),
         };
@@ -93,7 +95,7 @@ export function SimulateResult({
     : (() => {
         const newPlace = projectedPlace(peerScores, sim.newScore);
         return {
-          label: 'New European',
+          label: 'Position',
           value: `#${newPlace}`,
           note: null as string | null,
           delta: delta(newPlace, currentPlace, true),
@@ -127,13 +129,6 @@ export function SimulateResult({
           </div>
         )}
       </div>
-      {useBirmingham && (
-        <p className="road-window-note">
-          Scoped to the Birmingham qualifying window ({road!.firstRankingDay} –{' '}
-          {road!.lastRankingDay}) — this can count different competitions than the live
-          World/European ranking above.
-        </p>
-      )}
       <div className="fields">
         <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} rows={3} />
         <CategorySelect categories={categories} value={category} onChange={setCategory} />
@@ -150,9 +145,9 @@ export function SimulateResult({
             : ' It sits below your five counting results.'}
         </p>
 
-        <div className="lookup-stats">
+        <div className="lookup-stats small">
           <div className={`stat ${scoreD.tone}`}>
-            <div className="stat-label">New score</div>
+            <div className="stat-label">Ranking</div>
             <div className="stat-value">{sim.newScore}</div>
             <div className={`stat-delta ${scoreD.tone}`}>{scoreD.text}</div>
           </div>
@@ -166,6 +161,11 @@ export function SimulateResult({
               </div>
             )}
           </div>
+          {
+          /**
+            Add display for projected world ranking
+          */
+          }
         </div>
       </div>
     </div>

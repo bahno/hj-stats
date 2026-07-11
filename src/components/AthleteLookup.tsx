@@ -332,7 +332,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
 
       <div className="lookup-stats">
         <div className="stat">
-          <div className="stat-label">Ranking score</div>
+          <div className="stat-label">Score</div>
           <div className="stat-value">{row.rankingScore}</div>
           {scoreDelta && <div className="stat-delta">{scoreDelta} vs last week</div>}
         </div>
@@ -381,6 +381,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         baseScores={baseScores}
         currentScore={row.rankingScore}
         currentPlace={row.place}
+        currentWorldPlace={row.worldPlace}
         peerScores={peerScores}
         road={roadSim}
         source={source}
