@@ -655,6 +655,18 @@ h2 {
   padding-top: 18px;
 }
 
+.lookup-head {
+  position: relative;
+  /* Reserve space so the name never runs under the top-right favorite star. */
+  padding-right: 30px;
+}
+
+.lookup-head .fav-star {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
 .lookup-name {
   font-family: var(--display);
   font-size: 1.15rem;
