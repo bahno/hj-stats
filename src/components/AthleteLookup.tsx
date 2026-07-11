@@ -7,6 +7,7 @@ import {
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import { GenderToggle } from './inputs/GenderToggle';
+import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
@@ -92,6 +93,7 @@ interface Found {
 
 export function AthleteLookup() {
   const [gender, setGender] = useState<Gender>('men');
+  const [rankingType, setRankingType] = useState<RankingType>('road')
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -174,6 +176,13 @@ export function AthleteLookup() {
     setMessage('');
   }
 
+  function changeRankingType(r: RankingType) {
+    setRankingType(r);
+    setStatus('idle');
+    setCandidates([]);
+    setMessage('');
+  }
+
   return (
     <section className={`card lookup ${gender}`}>
       {user && favorites.length > 0 && (
@@ -210,6 +219,7 @@ export function AthleteLookup() {
             autoComplete="off"
           />
         </label>
+        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
         <button className="lookup-btn" type="submit" disabled={status === 'loading'}>
           {status === 'loading' ? 'Searching…' : 'Get ranking'}
         </button>

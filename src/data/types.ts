@@ -3,6 +3,8 @@ export type Gender = 'men' | 'women';
 export const CATEGORY_CODES = ['OW', 'DF', 'GW', 'GL', 'A', 'B', 'C', 'D', 'E', 'F'] as const;
 export type CategoryCode = (typeof CATEGORY_CODES)[number];
 
+export type RankingType = 'european' | 'world' | 'road';
+
 export interface ScoringTable {
   event: 'high_jump';
   unit: 'm';
