@@ -30,6 +30,59 @@ function matches(query: string, athlete: string): boolean {
     .every((t) => a.includes(t));
 }
 
+/**
+ * Easter egg: recognise Klára Krejčířiková however the ranking spells her.
+ * Diacritics are stripped and the surname is matched loosely (starts with
+ * "krej") so accent/transliteration differences from the API still trigger it.
+ */
+function isKlara(name: string): boolean {
+  const tokens = normalize(name).split(/\s+/).filter(Boolean);
+  return tokens.includes('klara') && tokens.some((t) => t.startsWith('krej'));
+}
+
+/** A little golden diadem crowned with a pink crystal, with a subtle shimmer. */
+function KlaraDiadem() {
+  return (
+    <svg
+      className="klara-diadem"
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label="Queen"
+    >
+      <defs>
+        <linearGradient id="klara-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f6e6a8" />
+          <stop offset="1" stopColor="#c99a2e" />
+        </linearGradient>
+      </defs>
+      {/* Crown: three peaks rising from a curved band. */}
+      <path
+        className="diadem-crown"
+        d="M3 17 L6 10 L9 14 L12 7 L15 14 L18 10 L21 17 Q12 13.5 3 17 Z"
+        fill="url(#klara-gold)"
+        stroke="#8a6a1c"
+        strokeWidth="0.5"
+        strokeLinejoin="round"
+      />
+      {/* Pink crystal set in the centre peak. */}
+      <path
+        className="diadem-gem"
+        d="M12 5 L13.7 8 L12 11.4 L10.3 8 Z"
+        fill="var(--women)"
+        stroke="#fff"
+        strokeWidth="0.4"
+        strokeOpacity="0.6"
+      />
+      {/* Twinkle over the crystal. */}
+      <path
+        className="diadem-spark"
+        d="M12 6.4 L12.5 7.6 L13.7 8 L12.5 8.4 L12 9.6 L11.5 8.4 L10.3 8 L11.5 7.6 Z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
 interface Found {
   row: RankingRow;
   calc: RankingCalculation;
@@ -198,7 +251,10 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
   return (
     <div className="lookup-result">
       <div className="lookup-head">
-        <div className="lookup-name">{row.athlete}</div>
+        <div className="lookup-name">
+          {row.athlete}
+          {isKlara(row.athlete) && <KlaraDiadem />}
+        </div>
         <div className="muted">{row.nationality} · High Jump</div>
         <FavoriteStar
           slug={row.athleteUrlSlug}

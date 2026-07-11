@@ -659,6 +659,57 @@ h2 {
   font-family: var(--display);
   font-size: 1.15rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Easter egg: a golden diadem with a pink crystal, gently shimmering. */
+.klara-diadem {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  filter: drop-shadow(0 0 3px rgb(224 192 104 / 0.55));
+}
+
+.klara-diadem .diadem-gem {
+  transform-origin: 12px 8px;
+  animation: klara-glow 2.6s ease-in-out infinite;
+}
+
+.klara-diadem .diadem-spark {
+  transform-origin: 12px 8px;
+  animation: klara-twinkle 2.6s ease-in-out infinite;
+}
+
+@keyframes klara-glow {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2.5px var(--women));
+  }
+}
+
+@keyframes klara-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .klara-diadem .diadem-gem,
+  .klara-diadem .diadem-spark {
+    animation: none;
+  }
 }
 
 .lookup-head .muted {
