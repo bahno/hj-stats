@@ -766,6 +766,61 @@ h2 {
   color: var(--muted);
 }
 
+.road-to-birmingham {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 18px;
+}
+
+.road-label {
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+
+.road-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.road-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.road-badge.qualified {
+  color: var(--pos);
+  background: rgb(63 185 80 / 0.14);
+  border: 1px solid rgb(63 185 80 / 0.4);
+}
+
+.road-badge.bubble {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.road-detail {
+  font-size: 0.85rem;
+}
+
+.road-position {
+  font-size: 0.72rem;
+  margin-top: 6px;
+}
+
 .comps-label {
   font-family: var(--display);
   font-weight: 600;
@@ -981,6 +1036,7 @@ h2 {
     grid-template-areas:
       "head  sim"
       "stats sim"
+      "road  sim"
       "comps sim";
     column-gap: 36px;
     align-items: start;
@@ -992,6 +1048,10 @@ h2 {
 
   .lookup-stats {
     grid-area: stats;
+  }
+
+  .road-to-birmingham {
+    grid-area: road;
   }
 
   .lookup-comps {

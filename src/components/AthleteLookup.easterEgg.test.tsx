@@ -21,6 +21,15 @@ vi.mock('../data/rankingApi', async (orig) => ({
   fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
   fetchRankingCalculation: vi.fn(),
 }));
+vi.mock('../data/birminghamApi', async (orig) => ({
+  ...(await orig<typeof import('../data/birminghamApi')>()),
+  fetchRoadToBirmingham: vi.fn(async () => ({
+    entryNumber: 30,
+    entryStandard: '2.27',
+    rankDate: '',
+    qualifications: [],
+  })),
+}));
 
 import { AthleteLookup } from './AthleteLookup';
 import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';

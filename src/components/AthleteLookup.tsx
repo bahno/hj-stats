@@ -6,6 +6,12 @@ import {
   fetchHighJumpRanking,
   fetchRankingCalculation,
 } from '../data/rankingApi';
+import {
+  fetchRoadToBirmingham,
+  findQualification,
+  type QualificationEntry,
+  type RoadToBirmingham as RoadToBirminghamData,
+} from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
 import { SimulateResult } from './SimulateResult';
 import { placeClass } from './placement';
@@ -88,6 +94,8 @@ interface Found {
   calc: RankingCalculation;
   peers: RankingRow[];
   gender: Gender;
+  /** null when the fetch failed or hasn't been resolved — rendered as "not tracked". */
+  road: RoadToBirminghamData | null;
 }
 
 export function AthleteLookup() {
@@ -108,6 +116,7 @@ export function AthleteLookup() {
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
   const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());
+  const [roadCache] = useState(() => new Map<Gender, RoadToBirminghamData>());
 
   async function ranking(g: Gender) {
     const hit = cache.get(g);
@@ -117,16 +126,32 @@ export function AthleteLookup() {
     return data;
   }
 
+  // Road to Birmingham is undocumented and can fail/change shape independently of the
+  // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
+  async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
+    const hit = roadCache.get(g);
+    if (hit) return hit;
+    try {
+      const data = await fetchRoadToBirmingham(g);
+      roadCache.set(g, data);
+      return data;
+    } catch (e) {
+      console.warn('Road to Birmingham fetch failed', e);
+      return null;
+    }
+  }
+
   async function select(row: RankingRow, g: Gender) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
     try {
-      const [calc, list] = await Promise.all([
+      const [calc, list, road] = await Promise.all([
         fetchRankingCalculation(row.id),
         ranking(g),
+        roadToBirmingham(g),
       ]);
-      setFound({ row, calc, peers: list.rows, gender: g });
+      setFound({ row, calc, peers: list.rows, gender: g, road });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -252,7 +277,7 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
-  const { row, calc, peers, gender } = found;
+  const { row, calc, peers, gender, road } = found;
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
@@ -292,6 +317,8 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         </div>
       </div>
 
+      <RoadToBirmingham road={road} athleteUrlSlug={row.athleteUrlSlug} />
+
       <div className="lookup-comps">
         <ul className="comp-list">
           {results.map((r, i) => (
@@ -321,6 +348,51 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         currentPlace={row.place}
         peerScores={peerScores}
       />
+    </div>
+  );
+}
+
+/** Human-readable qualification detail for a Road to Birmingham entry. */
+function qualificationDetail(entry: QualificationEntry): string {
+  const { label, result, venue, date, place, score } = entry.qualificationDetails;
+  if (label) return label;
+  if (result) return [`${result} m`, venue, date].filter(Boolean).join(' · ');
+  if (score != null) return `World ranking #${place} · ${score} pts`;
+  return entry.qualifiedBy;
+}
+
+function RoadToBirmingham({
+  road,
+  athleteUrlSlug,
+}: {
+  road: RoadToBirminghamData | null;
+  athleteUrlSlug: string;
+}) {
+  const entry = road ? findQualification(road, athleteUrlSlug) : undefined;
+
+  if (!entry) {
+    return (
+      <div className="road-to-birmingham">
+        <div className="road-label">Road to Birmingham</div>
+        <div className="muted">Not currently on the Road to Birmingham list.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="road-to-birmingham">
+      <div className="road-label">Road to Birmingham</div>
+      <div className="road-row">
+        <span className={`road-badge ${entry.qualified ? 'qualified' : 'bubble'}`}>
+          {entry.qualified ? 'Qualified' : 'Not yet qualifying'}
+        </span>
+        <span className="road-detail">{qualificationDetail(entry)}</span>
+      </div>
+      {entry.qualified && entry.qualificationPosition != null && (
+        <div className="muted road-position">
+          #{entry.qualificationPosition} of {road?.entryNumber} qualifying spots
+        </div>
+      )}
     </div>
   );
 }
