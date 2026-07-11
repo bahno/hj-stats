@@ -5,6 +5,12 @@ export type CategoryCode = (typeof CATEGORY_CODES)[number];
 
 export type RankingType = 'european' | 'world' | 'road';
 
+/** One peer's score + country, for country-quota-aware pool ranking. */
+export interface CountryScore {
+  score: number;
+  country: string;
+}
+
 export interface ScoringTable {
   event: 'high_jump';
   unit: 'm';

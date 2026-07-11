@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { CategoryCode, Gender } from '../data/types';
+import type { CategoryCode, CountryScore, Gender, RankingType } from '../data/types';
 import { categories, scoringTable } from '../engine/data';
 import { availableMarks, defaultHeightFor } from '../engine/marks';
 import {
@@ -14,7 +14,6 @@ import { HeightSelect } from './inputs/HeightSelect';
 import { PositionSelect } from './inputs/PositionSelect';
 
 type Tone = 'up' | 'down' | 'flat';
-export type Source = 'world' | 'birmingham';
 
 function delta(next: number, current: number, betterIsLower: boolean): { text: string; tone: Tone } {
   const d = next - current;
@@ -27,7 +26,8 @@ function delta(next: number, current: number, betterIsLower: boolean): { text: s
 export interface RoadSimData {
   baseScores: number[]; // the athlete's Birmingham-scoped 5 counting results
   currentScore: number; // their Birmingham-scoped average score
-  peerScores: number[]; // world-rankings-pool peers' scores (self excluded)
+  peers: CountryScore[]; // world-rankings-pool peers' scores + countries (self excluded)
+  country: string; // the athlete's own country, for the per-country quota
   nonRankingSlots: number; // spots filled by entry standard/other fixed routes
   worldRankingSlots: number; // spots filled by the ranking pool
   entryNumber: number; // total qualifying spots
@@ -42,21 +42,17 @@ export function SimulateResult({
   baseScores,
   currentScore,
   currentPlace,
-  currentWorldPlace,
   peerScores,
   road,
-  source,
-  onSourceChange,
+  rankingType,
 }: {
   gender: Gender;
   baseScores: number[];
   currentScore: number;
   currentPlace: number; // current European place
-  currentWorldPlace: number; // current World place
   peerScores: number[]; // European peers' ranking scores (self excluded)
   road?: RoadSimData;
-  source: Source;
-  onSourceChange: (source: Source) => void;
+  rankingType: RankingType;
 }) {
   const marks = useMemo(() => availableMarks(scoringTable, gender), [gender]);
   const [mark, setMark] = useState(() => defaultHeightFor(scoringTable, gender));
@@ -64,7 +60,7 @@ export function SimulateResult({
   const [place, setPlace] = useState(1);
 
   const effectiveMark = marks.includes(mark) ? mark : defaultHeightFor(scoringTable, gender);
-  const useBirmingham = source === 'birmingham' && !!road;
+  const useBirmingham = rankingType === 'road' && !!road;
   const effBaseScores = useBirmingham ? road!.baseScores : baseScores;
   const effCurrentScore = useBirmingham ? road!.currentScore : currentScore;
 
@@ -76,58 +72,48 @@ export function SimulateResult({
 
   const scoreD = delta(sim.newScore, effCurrentScore, false);
 
-  const standing = useBirmingham
-    ? (() => {
-        const newPosition = qualifyingPosition(road!.peerScores, sim.newScore, road!.nonRankingSlots);
-        const currentPosition = qualifyingPosition(
-          road!.peerScores,
-          effCurrentScore,
-          road!.nonRankingSlots,
-        );
-        const qualifies = withinWorldRankingQuota(road!.peerScores, sim.newScore, road!.worldRankingSlots);
-        return {
-          label: 'Position',
-          value: `#${newPosition}`,
-          note: qualifies ? 'Qualifying' : 'Not qualifying',
-          delta: delta(newPosition, currentPosition, true),
-        };
-      })()
-    : (() => {
-        const newPlace = projectedPlace(peerScores, sim.newScore);
-        return {
-          label: 'Position',
-          value: `#${newPlace}`,
-          note: null as string | null,
-          delta: delta(newPlace, currentPlace, true),
-        };
-      })();
+  const standing = useMemo(() => {
+    if (rankingType === 'road' && road) {
+      const newPosition = qualifyingPosition(road.peers, sim.newScore, road.country, road.nonRankingSlots);
+      const currentPosition = qualifyingPosition(
+        road.peers,
+        effCurrentScore,
+        road.country,
+        road.nonRankingSlots,
+      );
+      const qualifies = withinWorldRankingQuota(
+        road.peers,
+        sim.newScore,
+        road.country,
+        road.worldRankingSlots,
+      );
+      return {
+        label: 'Position',
+        value: newPosition != null ? `#${newPosition}` : '—',
+        note: newPosition == null ? 'Blocked by country quota' : qualifies ? 'Qualifying' : 'Not qualifying',
+        delta:
+          newPosition != null && currentPosition != null
+            ? delta(newPosition, currentPosition, true)
+            : { text: '—', tone: 'flat' as Tone },
+      };
+    }
+    if (rankingType === 'world') return null;
+    // 'european', or 'road' selected but the athlete has no world-rankings-pool data
+    // (e.g. qualified by entry standard) — fall back to the European projection rather
+    // than showing nothing.
+    const newPlace = projectedPlace(peerScores, sim.newScore);
+    return {
+      label: 'Position',
+      value: `#${newPlace}`,
+      note: null as string | null,
+      delta: delta(newPlace, currentPlace, true),
+    };
+  }, [rankingType, road, sim.newScore, effCurrentScore, peerScores, currentPlace]);
 
   return (
     <div className="simulate">
       <div className="simulate-head">
         <div className="comps-label">Simulate a result</div>
-        {road && (
-          <div className="source-switch" role="tablist" aria-label="Simulation basis">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === 'world'}
-              className={source === 'world' ? 'active' : ''}
-              onClick={() => onSourceChange('world')}
-            >
-              World ranking
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === 'birmingham'}
-              className={source === 'birmingham' ? 'active' : ''}
-              onClick={() => onSourceChange('birmingham')}
-            >
-              Road to Birmingham
-            </button>
-          </div>
-        )}
       </div>
       <div className="fields">
         <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} rows={3} />
@@ -145,28 +131,31 @@ export function SimulateResult({
             : ' It sits below your five counting results.'}
         </p>
 
-        <div className="lookup-stats small">
+        <div className={`lookup-stats small ${standing ? '' : 'single'}`}>
           <div className={`stat ${scoreD.tone}`}>
             <div className="stat-label">Ranking</div>
             <div className="stat-value">{sim.newScore}</div>
             <div className={`stat-delta ${scoreD.tone}`}>{scoreD.text}</div>
           </div>
-          <div className={`stat ${standing.delta.tone}`}>
-            <div className="stat-label">{standing.label}</div>
-            <div className="stat-value">{standing.value}</div>
-            <div className={`stat-delta ${standing.delta.tone}`}>{standing.delta.text}</div>
-            {standing.note && (
-              <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'bubble'}`}>
-                {standing.note}
-              </div>
-            )}
-          </div>
-          {
-          /**
-            Add display for projected world ranking
-          */
-          }
+          {standing && (
+            <div className={`stat ${standing.delta.tone}`}>
+              <div className="stat-label">{standing.label}</div>
+              <div className="stat-value">{standing.value}</div>
+              <div className={`stat-delta ${standing.delta.tone}`}>{standing.delta.text}</div>
+              {standing.note && (
+                <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'bubble'}`}>
+                  {standing.note}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {!standing && (
+          <p className="road-window-note">
+            Projected position isn't available for World ranking — only European peer data is known.
+          </p>
+        )}
       </div>
     </div>
   );

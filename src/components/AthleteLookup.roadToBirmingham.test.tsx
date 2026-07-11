@@ -78,7 +78,7 @@ async function openResult() {
   await screen.findByText(row.athlete, { selector: '.lookup-name' });
 }
 
-test('shows the Qualified badge and position for a qualified athlete', async () => {
+test('shows the Road To stat as Qualified with the official position', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
@@ -102,12 +102,12 @@ test('shows the Qualified badge and position for a qualified athlete', async () 
 
   await openResult();
 
-  expect(await screen.findByText('Qualified')).toBeInTheDocument();
-  expect(screen.getByText('2.33 m · Rome (ITA) · 01 JUN 2026')).toBeInTheDocument();
-  expect(screen.getByText('#2 of 30 qualifying spots')).toBeInTheDocument();
+  expect(await screen.findByText('Road To', { selector: '.stat-label' })).toBeInTheDocument();
+  expect(screen.getByText('#2')).toBeInTheDocument();
+  expect(screen.getByText('Qualified', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
-test('shows the bubble state for a not-yet-qualified athlete', async () => {
+test('shows the Road To stat as Bubble with the world-rankings pool place', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
@@ -131,21 +131,19 @@ test('shows the bubble state for a not-yet-qualified athlete', async () => {
 
   await openResult();
 
-  expect(await screen.findByText('Not yet qualifying')).toBeInTheDocument();
-  expect(screen.getByText('World ranking #45 · 1105 pts')).toBeInTheDocument();
+  expect(await screen.findByText('#45')).toBeInTheDocument();
+  expect(screen.getByText('Bubble', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
-test('shows "not tracked" when the athlete has no qualification entry', async () => {
+test('shows the Road To stat as Not tracked when the athlete has no qualification entry', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(roadData([]));
 
   await openResult();
 
-  expect(
-    await screen.findByText('Not currently on the Road to Birmingham list.'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Not tracked')).toBeInTheDocument();
 });
 
-test('shows a simulation source switch for athletes in the world-rankings pool, and switching recomputes the standing stat', async () => {
+test('the ranking-type toggle switches the counting competitions list to the Road to Birmingham calculation', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
@@ -202,33 +200,27 @@ test('shows a simulation source switch for athletes in the world-rankings pool, 
 
   await openResult();
 
-  expect(await screen.findByText('World ranking')).toBeInTheDocument();
-  expect(screen.getByText('New European')).toBeInTheDocument();
-  expect(screen.queryByText(/Scoped to the Birmingham qualifying window/)).toBeNull();
-  expect(screen.getByText('World Only Meet')).toBeInTheDocument();
-  expect(screen.queryByText('Birmingham Only Meet')).toBeNull();
-
-  fireEvent.click(screen.getByText('Road to Birmingham', { selector: 'button' }));
-
-  expect(await screen.findByText('New Birmingham position')).toBeInTheDocument();
-  expect(screen.queryByText('New European')).toBeNull();
-  expect(
-    screen.getByText(/Scoped to the Birmingham qualifying window \(27 JUL 2025 – 26 JUL 2026\)/),
-  ).toBeInTheDocument();
+  // rankingType defaults to 'road', so the Birmingham calculation should already be showing.
+  expect(await screen.findByText('Counting competitions — Road to Birmingham')).toBeInTheDocument();
   expect(screen.getByText('Birmingham Only Meet')).toBeInTheDocument();
   expect(screen.queryByText('World Only Meet')).toBeNull();
-  expect(screen.getByText('Counting competitions — Road to Birmingham')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByText('European', { selector: '.ranking-type-label' }));
+
+  expect(await screen.findByText('Counting competitions')).toBeInTheDocument();
+  expect(screen.getByText('World Only Meet')).toBeInTheDocument();
+  expect(screen.queryByText('Birmingham Only Meet')).toBeNull();
 });
 
-test('does not show the switch when the athlete has no world-rankings calculation (e.g. qualified by entry standard)', async () => {
+test('shows "Blocked by country quota" in the simulate tile when 3 compatriots already rank above the pool', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
-        qualifiedBy: 'Qualified by Entry Standard',
-        qualificationTypeId: 'q1',
+        qualifiedBy: 'In World Rankings quota',
+        qualificationTypeId: 'q4',
         qualified: true,
-        qualificationPosition: 2,
-        countryPosition: 1,
+        qualificationPosition: 4,
+        countryPosition: 4,
         competitor: {
           athleteId: 14375750,
           name: row.athlete,
@@ -237,16 +229,52 @@ test('does not show the switch when the athlete has no world-rankings calculatio
         },
         withdrawn: false,
         rejected: false,
-        qualificationDetails: { result: '2.33', venue: 'Rome (ITA)', date: '01 JUN 2026' },
+        qualificationDetails: { place: 4, score: 1196, calculationId: 999 },
+      },
+      {
+        qualifiedBy: 'In World Rankings quota',
+        qualificationTypeId: 'q4',
+        qualified: true,
+        qualificationPosition: 1,
+        countryPosition: 1,
+        competitor: { athleteId: 2, name: 'Peer A', country: 'ITA', urlSlug: 'italy/peer-a-2' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { place: 1, score: 9999 },
+      },
+      {
+        qualifiedBy: 'In World Rankings quota',
+        qualificationTypeId: 'q4',
+        qualified: true,
+        qualificationPosition: 2,
+        countryPosition: 2,
+        competitor: { athleteId: 3, name: 'Peer B', country: 'ITA', urlSlug: 'italy/peer-b-3' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { place: 2, score: 9998 },
+      },
+      {
+        qualifiedBy: 'Next best by World Rankings',
+        qualificationTypeId: 'n4',
+        qualified: false,
+        qualificationPosition: null,
+        countryPosition: 3,
+        competitor: { athleteId: 4, name: 'Peer C', country: 'ITA', urlSlug: 'italy/peer-c-4' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { place: 3, score: 9997 },
       },
     ]),
   );
+  vi.mocked(fetchRankingCalculation).mockImplementation(async (id: number) =>
+    id === 999 ? { averagePerformanceScore: 1196, disciplineList: ['High Jump'], results: [] } : calc,
+  );
 
   await openResult();
-  await screen.findByText('Qualified');
 
-  expect(screen.queryByText('World ranking')).toBeNull();
-  expect(screen.getByText('New European')).toBeInTheDocument();
+  // Default rankingType is 'road': three Italians already outrank both the athlete's
+  // current score and any plausible simulated score, so the 3-per-country cap blocks them.
+  expect(await screen.findByText('Blocked by country quota')).toBeInTheDocument();
 });
 
 test('the rest of the result still renders when the Road to Birmingham fetch fails', async () => {
@@ -254,10 +282,6 @@ test('the rest of the result still renders when the Road to Birmingham fetch fai
 
   await openResult();
 
-  await waitFor(() =>
-    expect(
-      screen.getByText('Not currently on the Road to Birmingham list.'),
-    ).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(screen.getByText('Not tracked')).toBeInTheDocument());
   expect(screen.getByText('1400')).toBeInTheDocument();
 });

@@ -805,16 +805,31 @@ h2 {
 
 .lookup-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin: 18px 0;
 }
 
-.lookup-stats.small{
+.section-divider {
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
+
+.lookup-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.lookup-stats.small {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin: 18px 0;
+}
+
+.lookup-stats.small.single {
+  grid-template-columns: 1fr;
 }
 
 .stat {
@@ -847,31 +862,6 @@ h2 {
   color: var(--muted);
 }
 
-.road-to-birmingham {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px;
-  margin: 0 0 18px;
-}
-
-.road-label {
-  color: var(--muted);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 8px;
-}
-
-.road-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .road-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -891,15 +881,6 @@ h2 {
   color: var(--muted);
   background: transparent;
   border: 1px solid var(--line);
-}
-
-.road-detail {
-  font-size: 0.85rem;
-}
-
-.road-position {
-  font-size: 0.72rem;
-  margin-top: 6px;
 }
 
 .comps-label {
@@ -1160,10 +1141,11 @@ h2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
-      "head  sim"
-      "stats sim"
-      "road  sim"
-      "comps sim";
+      "head    head"
+      "stats   stats"
+      "divider divider"
+      "toggle  toggle"
+      "comps   sim";
     column-gap: 36px;
     align-items: start;
   }
@@ -1174,10 +1156,15 @@ h2 {
 
   .lookup-stats {
     grid-area: stats;
+    grid-template-columns: repeat(4, 1fr);
   }
 
-  .road-to-birmingham {
-    grid-area: road;
+  .section-divider {
+    grid-area: divider;
+  }
+
+  .lookup-toggle-row {
+    grid-area: toggle;
   }
 
   .lookup-comps {

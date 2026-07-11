@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { projectedPlace, qualifyingPosition, recomputeRanking, withinWorldRankingQuota } from './simulate';
+import type { CountryScore } from '../data/types';
+import {
+  projectedPlace,
+  qualifyingPoolRank,
+  qualifyingPosition,
+  recomputeRanking,
+  withinWorldRankingQuota,
+} from './simulate';
 
 // Mahuchikh's five counting scores (avg 1367).
 const BASE = [1400, 1389, 1369, 1349, 1330];
@@ -36,16 +43,76 @@ describe('projectedPlace', () => {
   });
 });
 
+const peers = (scores: [number, string][]): CountryScore[] =>
+  scores.map(([score, country]) => ({ score, country }));
+
+describe('qualifyingPoolRank', () => {
+  it('ranks by score when no country hits the cap', () => {
+    const pool = peers([
+      [1150, 'FRA'],
+      [1100, 'GER'],
+      [1050, 'ESP'],
+    ]);
+    expect(qualifyingPoolRank(pool, 1120, 'ITA')).toBe(2);
+  });
+
+  it('skips a 4th same-country peer without displacing others', () => {
+    // Three Italians already rank above a Spaniard; a simulated 4th-best Italian score
+    // is skipped by the quota and doesn't push the Spaniard down.
+    const pool = peers([
+      [1300, 'ITA'],
+      [1250, 'ITA'],
+      [1200, 'ITA'],
+      [1100, 'ESP'],
+    ]);
+    expect(qualifyingPoolRank(pool, 1150, 'ITA')).toBeNull();
+    expect(qualifyingPoolRank(pool, 1050, 'ESP')).toBe(5);
+  });
+
+  it('resolves ties in the simulated athlete\'s favor', () => {
+    const pool = peers([[1150, 'FRA']]);
+    expect(qualifyingPoolRank(pool, 1150, 'GER')).toBe(1);
+  });
+});
+
 describe('qualifyingPosition', () => {
   it('offsets the pool rank by the fixed non-ranking slots', () => {
     // 13 entry-standard spots ahead of the pool; 1st in the pool -> position 14.
-    expect(qualifyingPosition([1150, 1100, 1050], 1196, 13)).toBe(14);
+    const pool = peers([
+      [1150, 'FRA'],
+      [1100, 'GER'],
+      [1050, 'ESP'],
+    ]);
+    expect(qualifyingPosition(pool, 1196, 'ITA', 13)).toBe(14);
+  });
+
+  it('returns null when blocked by the country quota', () => {
+    const pool = peers([
+      [1300, 'ITA'],
+      [1250, 'ITA'],
+      [1200, 'ITA'],
+    ]);
+    expect(qualifyingPosition(pool, 1150, 'ITA', 13)).toBeNull();
   });
 });
 
 describe('withinWorldRankingQuota', () => {
   it('is true when the pool rank is within the available slots', () => {
-    expect(withinWorldRankingQuota([1150, 1100, 1050], 1120, 2)).toBe(true); // pool rank 2
-    expect(withinWorldRankingQuota([1150, 1100, 1050], 1000, 2)).toBe(false); // pool rank 4
+    const pool = peers([
+      [1150, 'FRA'],
+      [1100, 'GER'],
+      [1050, 'ESP'],
+    ]);
+    expect(withinWorldRankingQuota(pool, 1120, 'ITA', 2)).toBe(true); // pool rank 2
+    expect(withinWorldRankingQuota(pool, 1000, 'ITA', 2)).toBe(false); // pool rank 4
+  });
+
+  it('is false when blocked by the country quota, regardless of slots remaining', () => {
+    const pool = peers([
+      [1300, 'ITA'],
+      [1250, 'ITA'],
+      [1200, 'ITA'],
+    ]);
+    expect(withinWorldRankingQuota(pool, 1150, 'ITA', 10)).toBe(false);
   });
 });

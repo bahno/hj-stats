@@ -1,4 +1,4 @@
-import type { CategoryCode, Gender } from '../data/types';
+import type { CategoryCode, CountryScore, Gender } from '../data/types';
 import { placingPoints, scoringTable } from './data';
 import { performanceScore, placingScore } from './score';
 
@@ -47,23 +47,67 @@ export function projectedPlace(peerScores: number[], score: number): number {
   return 1 + peerScores.filter((s) => s > score).length;
 }
 
+/** The World Rankings qualifying pool caps counted athletes per country at this many. */
+export const MAX_PER_COUNTRY = 3;
+
 /**
- * Overall qualifying position when a fixed number of slots (`nonRankingSlots`, e.g.
- * entry-standard qualifiers) sit ahead of a ranking pool: the pool rank plus that offset.
+ * 1-based rank of `score` within the ranking pool once each country is capped at
+ * `maxPerCountry` counted athletes: walking the pool best-to-worst, any athlete beyond
+ * their country's cap is skipped entirely — they consume no slot and don't push anyone
+ * else down. Returns `null` if `country` already has `maxPerCountry` peers ranked
+ * strictly ahead of `score` (blocked by the quota, regardless of remaining pool slots).
+ *
+ * Previous/defending champions qualify via a separate fixed route and are expected to
+ * already be excluded from `peers` — they never occupy one of the `maxPerCountry` slots,
+ * which is why a country can field more than `maxPerCountry` athletes overall.
+ *
+ * Ties are resolved in the simulated athlete's favor, matching `projectedPlace`'s
+ * convention that only strictly-greater peer scores displace them.
  */
-export function qualifyingPosition(
-  peerScores: number[],
+export function qualifyingPoolRank(
+  peers: CountryScore[],
   score: number,
-  nonRankingSlots: number,
-): number {
-  return nonRankingSlots + projectedPlace(peerScores, score);
+  country: string,
+  maxPerCountry: number = MAX_PER_COUNTRY,
+): number | null {
+  const self: CountryScore = { score, country };
+  const pool = [self, ...peers].sort((a, b) => b.score - a.score);
+  const counts = new Map<string, number>();
+  let rank = 0;
+  for (const entry of pool) {
+    const used = counts.get(entry.country) ?? 0;
+    if (used >= maxPerCountry) continue;
+    counts.set(entry.country, used + 1);
+    rank++;
+    if (entry === self) return rank;
+  }
+  return null;
 }
 
-/** Whether `score`'s pool rank falls within the ranking pool's available slots. */
-export function withinWorldRankingQuota(
-  peerScores: number[],
+/**
+ * Overall qualifying position when a fixed number of slots (`nonRankingSlots`, e.g.
+ * entry-standard qualifiers) sit ahead of a country-quota-capped ranking pool: the pool
+ * rank plus that offset, or `null` if blocked by the country quota.
+ */
+export function qualifyingPosition(
+  peers: CountryScore[],
   score: number,
+  country: string,
+  nonRankingSlots: number,
+  maxPerCountry: number = MAX_PER_COUNTRY,
+): number | null {
+  const rank = qualifyingPoolRank(peers, score, country, maxPerCountry);
+  return rank == null ? null : nonRankingSlots + rank;
+}
+
+/** Whether `score`'s country-quota-capped pool rank falls within the available slots. */
+export function withinWorldRankingQuota(
+  peers: CountryScore[],
+  score: number,
+  country: string,
   worldRankingSlots: number,
+  maxPerCountry: number = MAX_PER_COUNTRY,
 ): boolean {
-  return projectedPlace(peerScores, score) <= worldRankingSlots;
+  const rank = qualifyingPoolRank(peers, score, country, maxPerCountry);
+  return rank != null && rank <= worldRankingSlots;
 }

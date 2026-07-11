@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   findQualification,
-  worldRankingPoolPeerScores,
+  worldRankingPoolPeers,
   type QualificationEntry,
   type RoadToBirmingham,
 } from './birminghamApi';
@@ -41,15 +41,28 @@ test('returns undefined when no entry matches', () => {
   expect(findQualification(data, 'czechia/nobody-99999999')).toBeUndefined();
 });
 
-test('worldRankingPoolPeerScores includes only q4/n4 entries with a score, excluding self', () => {
+test('worldRankingPoolPeers includes only q4/n4 entries with a score, excluding self', () => {
   const pool: RoadToBirmingham = {
     ...data,
     qualifications: [
-      entry('a', { qualificationTypeId: 'q4', qualified: true, qualificationDetails: { score: 1200 } }),
-      entry('b', { qualificationTypeId: 'n4', qualified: false, qualificationDetails: { score: 1050 } }),
+      entry('a', {
+        qualificationTypeId: 'q4',
+        qualified: true,
+        competitor: { athleteId: 2, name: 'A', country: 'FRA', urlSlug: 'a' },
+        qualificationDetails: { score: 1200 },
+      }),
+      entry('b', {
+        qualificationTypeId: 'n4',
+        qualified: false,
+        competitor: { athleteId: 3, name: 'B', country: 'GER', urlSlug: 'b' },
+        qualificationDetails: { score: 1050 },
+      }),
       entry('c', { qualificationTypeId: 'q1' }), // entry standard, no score — excluded
       entry('self', { qualificationTypeId: 'n4', qualified: false, qualificationDetails: { score: 1000 } }),
     ],
   };
-  expect(worldRankingPoolPeerScores(pool, 'self')).toEqual([1200, 1050]);
+  expect(worldRankingPoolPeers(pool, 'self')).toEqual([
+    { score: 1200, country: 'FRA' },
+    { score: 1050, country: 'GER' },
+  ]);
 });

@@ -10,13 +10,13 @@ import {
 import {
   fetchRoadToBirmingham,
   findQualification,
-  worldRankingPoolPeerScores,
+  worldRankingPoolPeers,
   type QualificationEntry,
   type RoadToBirmingham as RoadToBirminghamData,
 } from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
-import { SimulateResult, type RoadSimData, type Source } from './SimulateResult';
+import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
@@ -258,7 +258,6 @@ export function AthleteLookup() {
             autoComplete="off"
           />
         </label>
-        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
         <button className="lookup-btn" type="submit" disabled={status === 'loading'}>
           {status === 'loading' ? 'Searching…' : 'Get ranking'}
         </button>
@@ -294,7 +293,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
     </section>
   );
 }
@@ -307,9 +306,22 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
   return `${improved ? '▲' : '▼'} ${Math.abs(d)}`;
 }
 
-function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
+/** The Road to # stat card's value/badge for the three possible states. */
+function roadToStat(
+  road: RoadToBirminghamData | null,
+  entry: QualificationEntry | undefined,
+): { value: string; label: string; pill: 'qualified' | 'bubble' | null } {
+  if (!road || !entry) return { value: '—', label: 'Not tracked', pill: null };
+  if (entry.qualified) {
+    const pos = entry.qualificationPosition;
+    return { value: pos != null ? `#${pos}` : '—', label: 'Qualified', pill: 'qualified' };
+  }
+  const pos = entry.qualificationDetails.place;
+  return { value: pos != null ? `#${pos}` : '—', label: 'Bubble', pill: 'bubble' };
+}
+
+function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
   const { row, calc, peers, gender, road, roadCalc } = found;
-  const [source, setSource] = useState<Source>('world');
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
@@ -317,13 +329,15 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
 
   const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
-  const displayedResults = source === 'birmingham' && roadCalc ? roadCalc.results : results;
+  const roadStat = roadToStat(road, roadEntry);
+  const displayedResults = rankingType === 'road' && roadCalc ? roadCalc.results : results;
   const roadSim: RoadSimData | undefined =
     road && roadCalc
       ? {
           baseScores: roadCalc.results.map((r) => r.performanceScore),
           currentScore: roadCalc.averagePerformanceScore,
-          peerScores: worldRankingPoolPeerScores(road, row.athleteUrlSlug),
+          peers: worldRankingPoolPeers(road, row.athleteUrlSlug),
+          country: row.nationality,
           nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
           worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
           entryNumber: road.entryNumber,
@@ -363,13 +377,26 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
           <div className="stat-label">World</div>
           <div className={`stat-value ${placeClass(row.worldPlace) ?? ''}`}>#{row.worldPlace}</div>
         </div>
+        <div className="stat">
+          <div className="stat-label">Road To</div>
+          <div className="stat-value">{roadStat.value}</div>
+          {roadStat.pill ? (
+            <div className={`road-badge ${roadStat.pill}`}>{roadStat.label}</div>
+          ) : (
+            <div className="stat-delta">{roadStat.label}</div>
+          )}
+        </div>
       </div>
 
-      <RoadToBirmingham entry={roadEntry} entryNumber={road?.entryNumber} />
+      <div className="section-divider" />
+
+      <div className="lookup-toggle-row">
+        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
+      </div>
 
       <div className="lookup-comps">
         <div className="comps-label">
-          {source === 'birmingham' && roadCalc
+          {rankingType === 'road' && roadCalc
             ? 'Counting competitions — Road to Birmingham'
             : 'Counting competitions'}
         </div>
@@ -399,55 +426,10 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         baseScores={baseScores}
         currentScore={row.rankingScore}
         currentPlace={row.place}
-        currentWorldPlace={row.worldPlace}
         peerScores={peerScores}
         road={roadSim}
-        source={source}
-        onSourceChange={setSource}
+        rankingType={rankingType}
       />
-    </div>
-  );
-}
-
-/** Human-readable qualification detail for a Road to Birmingham entry. */
-function qualificationDetail(entry: QualificationEntry): string {
-  const { label, result, venue, date, place, score } = entry.qualificationDetails;
-  if (label) return label;
-  if (result) return [`${result} m`, venue, date].filter(Boolean).join(' · ');
-  if (score != null) return `World ranking #${place} · ${score} pts`;
-  return entry.qualifiedBy;
-}
-
-function RoadToBirmingham({
-  entry,
-  entryNumber,
-}: {
-  entry: QualificationEntry | undefined;
-  entryNumber: number | undefined;
-}) {
-  if (!entry) {
-    return (
-      <div className="road-to-birmingham">
-        <div className="road-label">Road to Birmingham</div>
-        <div className="muted">Not currently on the Road to Birmingham list.</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="road-to-birmingham">
-      <div className="road-label">Road to Birmingham</div>
-      <div className="road-row">
-        <span className={`road-badge ${entry.qualified ? 'qualified' : 'bubble'}`}>
-          {entry.qualified ? 'Qualified' : 'Not yet qualifying'}
-        </span>
-        <span className="road-detail">{qualificationDetail(entry)}</span>
-      </div>
-      {entry.qualified && entry.qualificationPosition != null && (
-        <div className="muted road-position">
-          #{entry.qualificationPosition} of {entryNumber} qualifying spots
-        </div>
-      )}
     </div>
   );
 }

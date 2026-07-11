@@ -13,7 +13,7 @@ vi.mock('../hooks/FavoritesContext', () => ({
   useFavorites: () => ({
     favorites: mocks.favorites.current,
     isFavorite: () => false,
-    toggle: vi.fn(),
+    toggle: vi.fn(() => Promise.resolve()),
     loading: false,
   }),
 }));
@@ -119,7 +119,7 @@ test('clicking a favorite star in the candidates list does not select the row', 
   });
   fireEvent.click(screen.getByRole('button', { name: 'Get ranking' }));
 
-  const star = await screen.findByRole('button', { name: 'Add favorite' });
+  const [star] = await screen.findAllByRole('button', { name: 'Add favorite' });
   fireEvent.click(star);
 
   expect(fetchRankingCalculation).not.toHaveBeenCalled();

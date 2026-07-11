@@ -4,6 +4,7 @@
  * undocumented, no-auth EA tRPC gateway used by rankingApi.ts. Verified 2026-07-11.
  */
 import { trpc, type Gender } from './rankingApi';
+import type { CountryScore } from './types';
 
 const BIRMINGHAM_COMPETITION_ID = 7192415;
 
@@ -90,14 +91,15 @@ export function findQualification(
 }
 
 /**
- * Scores of the other athletes in the world-rankings pool (qualificationTypeId q4/n4,
- * i.e. those with a numeric score) — the peer set ranking movement actually competes
- * against. Excludes the given athlete and anyone without a numeric score.
+ * Scores + countries of the other athletes in the world-rankings pool (qualificationTypeId
+ * q4/n4, i.e. those with a numeric score) — the peer set ranking movement actually competes
+ * against. Excludes the given athlete and anyone without a numeric score. Countries are
+ * needed to apply the pool's max-3-per-country cap (see engine/simulate.ts).
  */
-export function worldRankingPoolPeerScores(
+export function worldRankingPoolPeers(
   data: RoadToBirmingham,
   excludeUrlSlug: string,
-): number[] {
+): CountryScore[] {
   return data.qualifications
     .filter(
       (q) =>
@@ -105,5 +107,5 @@ export function worldRankingPoolPeerScores(
         (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') &&
         q.qualificationDetails.score != null,
     )
-    .map((q) => q.qualificationDetails.score as number);
+    .map((q) => ({ score: q.qualificationDetails.score as number, country: q.competitor.country }));
 }
