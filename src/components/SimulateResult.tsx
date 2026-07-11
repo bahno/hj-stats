@@ -175,12 +175,6 @@ export function SimulateResult({
             </div>
           )}
         </div>
-
-        {!standing && (
-          <p className="road-window-note">
-            Projected position isn't available for World ranking — only European peer data is known.
-          </p>
-        )}
       </div>
     </div>
   );

@@ -442,6 +442,7 @@ body {
 .wheel {
   position: relative;
   width: 60%;
+  margin: 0 auto;
   overflow: hidden;
 }
 
