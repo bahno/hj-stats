@@ -1,13 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   type Gender,
+  type RankingType,
   type RankingCalculation,
   type RankingRow,
   fetchHighJumpRanking,
   fetchRankingCalculation,
 } from '../data/rankingApi';
+import {
+  countryPreOccupancy,
+  fetchRoadToBirmingham,
+  findQualification,
+  qualifyingPoolPosition,
+  qualifyingPoolPositionIgnoringQuota,
+  worldRankingPoolPeers,
+  type QualificationEntry,
+  type RoadToBirmingham as RoadToBirminghamData,
+} from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
-import { SimulateResult } from './SimulateResult';
+import { RankingTypeToggle } from './inputs/RankingTypeToggle';
+import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
@@ -88,10 +100,15 @@ interface Found {
   calc: RankingCalculation;
   peers: RankingRow[];
   gender: Gender;
+  /** null when the fetch failed or hasn't been resolved — rendered as "not tracked". */
+  road: RoadToBirminghamData | null;
+  /** null unless the athlete is in the Birmingham world-rankings pool and the fetch succeeded. */
+  roadCalc: RankingCalculation | null;
 }
 
 export function AthleteLookup() {
   const [gender, setGender] = useState<Gender>('men');
+  const [rankingType, setRankingType] = useState<RankingType>('road')
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -108,6 +125,7 @@ export function AthleteLookup() {
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
   const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());
+  const [roadCache] = useState(() => new Map<Gender, RoadToBirminghamData>());
 
   async function ranking(g: Gender) {
     const hit = cache.get(g);
@@ -117,16 +135,42 @@ export function AthleteLookup() {
     return data;
   }
 
+  // Road to Birmingham is undocumented and can fail/change shape independently of the
+  // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
+  async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
+    const hit = roadCache.get(g);
+    if (hit) return hit;
+    try {
+      const data = await fetchRoadToBirmingham(g);
+      roadCache.set(g, data);
+      return data;
+    } catch (e) {
+      console.warn('Road to Birmingham fetch failed', e);
+      return null;
+    }
+  }
+
   async function select(row: RankingRow, g: Gender) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
     try {
-      const [calc, list] = await Promise.all([
+      const [calc, list, road] = await Promise.all([
         fetchRankingCalculation(row.id),
         ranking(g),
+        roadToBirmingham(g),
       ]);
-      setFound({ row, calc, peers: list.rows, gender: g });
+      const roadCalculationId = road
+        ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
+        : undefined;
+      const roadCalc =
+        roadCalculationId != null
+          ? await fetchRankingCalculation(roadCalculationId).catch((e) => {
+              console.warn('Road to Birmingham calculation fetch failed', e);
+              return null;
+            })
+          : null;
+      setFound({ row, calc, peers: list.rows, gender: g, road, roadCalc });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -171,6 +215,13 @@ export function AthleteLookup() {
     setFound(null);
     setCandidates([]);
     setStatus('idle');
+    setMessage('');
+  }
+
+  function changeRankingType(r: RankingType) {
+    setRankingType(r);
+    setStatus('idle');
+    setCandidates([]);
     setMessage('');
   }
 
@@ -221,24 +272,31 @@ export function AthleteLookup() {
         <ul className="lookup-candidates">
           {candidates.map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => select(c, gender)}>
-                <span>{c.athlete}</span>
-                <span className="muted">
-                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
+              <button
+                type="button"
+                className="lookup-candidates-element"
+                onClick={() => select(c, gender)}
+              >
+                <span>
+                  <span>{c.athlete}</span>
+                  <FavoriteStar
+                    slug={c.athleteUrlSlug}
+                    name={c.athlete}
+                    gender={gender}
+                    onNeedSignIn={() => setNeedSignIn(true)}
+                  />
+                </span>
+                <span className="muted" style={{ marginLeft: 'auto' }}>
+                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU · #<span className={placeClass(c.worldPlace)}>{c.worldPlace}</span> World
                 </span>
               </button>
-              <FavoriteStar
-                slug={c.athleteUrlSlug}
-                name={c.athlete}
-                gender={gender}
-                onNeedSignIn={() => setNeedSignIn(true)}
-              />
+
             </li>
           ))}
         </ul>
       )}
 
-      {found && <Result found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
     </section>
   );
 }
@@ -251,33 +309,107 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
   return `${improved ? '▲' : '▼'} ${Math.abs(d)}`;
 }
 
-function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
-  const { row, calc, peers, gender } = found;
+/**
+ * The Road to # stat card's value/badges for the three possible states. When qualified,
+ * the API's own `qualificationPosition` is authoritative. When not yet qualified, the API
+ * gives no position at all — `qualificationDetails.place` is the athlete's raw World
+ * Ranking place (unrelated to the qualifying pool), not their standing in the qualifying
+ * order, so `qualifyingPoolPosition` computes it from the pool's own ordering instead.
+ *
+ * When blocked by the country quota specifically (`qualifyingPoolPosition` returns
+ * `null` for a real pool entry), still show a rank — `qualifyingPoolPositionIgnoringQuota`
+ * ignores the cap entirely — alongside a `countryPill` naming the athlete's actual
+ * position within their own country (from the API's `countryPosition`), so the block
+ * reads as "4th in your country, cap is 3" rather than a blank dash.
+ */
+function roadToStat(
+  road: RoadToBirminghamData | null,
+  entry: QualificationEntry | undefined,
+): { value: string; label: string; pill: 'qualified' | 'next' | null; countryPill: string | null } {
+  if (!road || !entry) return { value: '—', label: 'Not tracked', pill: null, countryPill: null };
+  if (entry.qualified) {
+    const pos = entry.qualificationPosition;
+    return { value: pos != null ? `#${pos}` : '—', label: 'Qualifying', pill: 'qualified', countryPill: null };
+  }
+  const pos = qualifyingPoolPosition(road, entry.competitor.urlSlug);
+  if (pos != null) {
+    return { value: `#${pos}`, label: 'Next Best', pill: 'next', countryPill: null };
+  }
+  const uncapped = qualifyingPoolPositionIgnoringQuota(road, entry.competitor.urlSlug);
+  return {
+    value: uncapped != null ? `#${uncapped}` : '—',
+    label: 'Next Best',
+    pill: 'next',
+    countryPill: entry.countryPosition != null ? `CP ${entry.countryPosition}` : null,
+  };
+}
+
+/**
+ * An athlete's current qualifying-pool position, whichever state they're in — the API's
+ * own value when qualified, our computed one when not, and the uncapped-ignoring-quota
+ * one (same fallback `roadToStat` displays) when blocked by the country quota, so the
+ * simulate tile always has a real baseline to diff a simulated result against instead of
+ * showing a blank delta. `null` only when untracked or not in the pool at all.
+ */
+function currentRoadPosition(
+  road: RoadToBirminghamData | null,
+  entry: QualificationEntry | undefined,
+): number | null {
+  if (!road || !entry) return null;
+  if (entry.qualified) return entry.qualificationPosition;
+  const pos = qualifyingPoolPosition(road, entry.competitor.urlSlug);
+  return pos ?? qualifyingPoolPositionIgnoringQuota(road, entry.competitor.urlSlug);
+}
+
+function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
+  const { row, calc, peers, gender, road, roadCalc } = found;
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
 
+  const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
+  const roadStat = roadToStat(road, roadEntry);
+  const displayedResults = rankingType === 'road' && roadCalc ? roadCalc.results : results;
+  const roadSim: RoadSimData | undefined =
+    road && roadCalc
+      ? {
+          baseScores: roadCalc.results.map((r) => r.performanceScore),
+          currentScore: roadCalc.averagePerformanceScore,
+          peers: worldRankingPoolPeers(road, row.athleteUrlSlug),
+          country: row.nationality,
+          countryPreOccupancy: countryPreOccupancy(road),
+          currentPosition: currentRoadPosition(road, roadEntry),
+          nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
+          worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
+          entryNumber: road.entryNumber,
+          firstRankingDay: road.firstRankingDay,
+          lastRankingDay: road.lastRankingDay,
+        }
+      : undefined;
+
   return (
     <div className="lookup-result">
       <div className="lookup-head">
-        <div className="lookup-name">
-          {row.athlete}
-          {isKlara(row.athlete) && <KlaraDiadem />}
+        <div className="lookup-name-row">
+          <div className="lookup-name">
+            {row.athlete}
+            {isKlara(row.athlete) && <KlaraDiadem />}
+          </div>
+          <FavoriteStar
+            slug={row.athleteUrlSlug}
+            name={row.athlete}
+            gender={gender}
+            onNeedSignIn={onNeedSignIn}
+          />
         </div>
         <div className="muted">{row.nationality} · High Jump</div>
-        <FavoriteStar
-          slug={row.athleteUrlSlug}
-          name={row.athlete}
-          gender={gender}
-          onNeedSignIn={onNeedSignIn}
-        />
       </div>
 
       <div className="lookup-stats">
         <div className="stat">
-          <div className="stat-label">Ranking score</div>
+          <div className="stat-label">Score</div>
           <div className="stat-value">{row.rankingScore}</div>
           {scoreDelta && <div className="stat-delta">{scoreDelta} vs last week</div>}
         </div>
@@ -290,11 +422,29 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
           <div className="stat-label">World</div>
           <div className={`stat-value ${placeClass(row.worldPlace) ?? ''}`}>#{row.worldPlace}</div>
         </div>
+        <div className="stat">
+          <div className="stat-label">Road To</div>
+          <div className="stat-value">{roadStat.value}</div>
+          {roadStat.pill ? (
+            <div className="road-badges">
+              <div className={`road-badge ${roadStat.pill}`}>{roadStat.label}</div>
+              {roadStat.countryPill && <div className="road-badge cp">{roadStat.countryPill}</div>}
+            </div>
+          ) : (
+            <div className="stat-delta">{roadStat.label}</div>
+          )}
+        </div>
+      </div>
+
+      <div className="section-divider" />
+
+      <div className="lookup-toggle-row">
+        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
       </div>
 
       <div className="lookup-comps">
         <ul className="comp-list">
-          {results.map((r, i) => (
+          {displayedResults.map((r, i) => (
             <li className="comp-item" key={`${r.date}-${i}`}>
               <div className="comp-main">
                 <div className="comp-name">{r.competition}</div>
@@ -320,6 +470,8 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         currentScore={row.rankingScore}
         currentPlace={row.place}
         peerScores={peerScores}
+        road={roadSim}
+        rankingType={rankingType}
       />
     </div>
   );
@@ -345,9 +497,10 @@ function FavoriteStar({
       className={`fav-star ${active ? 'on' : ''}`}
       aria-pressed={active}
       aria-label={active ? 'Remove favorite' : 'Add favorite'}
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (!user) return onNeedSignIn();
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => {});
+        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => { });
       }}
     >
       {active ? '★' : '☆'}

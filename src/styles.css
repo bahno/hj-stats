@@ -365,10 +365,92 @@ body {
   border-color: rgb(var(--accent-rgb) / 0.45);
 }
 
+.ranking-type-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  width: 260px;
+  max-width: 300px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.ranking-type-knob {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(33% - 2px);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.ranking-type-knob.men {
+  background: rgb(47 95 224 / 0.22);
+  border-color: rgb(47 95 224 / 0.5);
+}
+
+.ranking-type-knob.women {
+  background: rgb(224 68 122 / 0.2);
+  border-color: rgb(224 68 122 / 0.5);
+}
+
+.ranking-type-switch.world .ranking-type-knob {
+  transform: translateX(0);
+}
+
+.ranking-type-switch.european .ranking-type-knob {
+  transform: translateX(102%);
+}
+
+.ranking-type-switch.road .ranking-type-knob {
+  transform: translateX(205%);
+}
+
+.ranking-type-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ranking-type-switch.world .ranking-type-label.world {
+  color: var(--text);
+}
+
+.ranking-type-switch.european .ranking-type-label.european {
+  color: var(--text);
+}
+
+.ranking-type-switch.road .ranking-type-label.road {
+  color: var(--text);
+}
+
+.ranking-type-label:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgb(var(--accent-rgb) / 0.45);
+}
+
 /* iOS-alarm-style wheel picker (height & position) */
 .wheel {
   position: relative;
-  width: 100%;
+  width: 60%;
+  margin: 0 auto;
   overflow: hidden;
 }
 
@@ -631,10 +713,11 @@ h2 {
   gap: 6px;
 }
 
-.lookup-candidates button {
+.lookup-candidates-element {
   width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 10px 12px;
   background: var(--bg);
@@ -656,15 +739,14 @@ h2 {
 }
 
 .lookup-head {
-  position: relative;
-  /* Reserve space so the name never runs under the top-right favorite star. */
-  padding-right: 30px;
+  text-align: center;
 }
 
-.lookup-head .fav-star {
-  position: absolute;
-  top: 0;
-  right: 0;
+.lookup-name-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .lookup-name {
@@ -731,9 +813,31 @@ h2 {
 
 .lookup-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin: 18px 0;
+}
+
+.section-divider {
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
+
+.lookup-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.lookup-stats.small {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.lookup-stats.small.single {
+  grid-template-columns: 1fr;
 }
 
 .stat {
@@ -764,6 +868,44 @@ h2 {
 .stat-delta {
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.road-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.road-badge.qualified {
+  color: var(--pos);
+  background: rgb(63 185 80 / 0.14);
+  border: 1px solid rgb(63 185 80 / 0.4);
+}
+
+.road-badge.next {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+/* Country-position pill: shown alongside "Next Best" when an athlete is blocked by the
+   3-per-country cap, naming their actual position within their own country. */
+.road-badge.cp {
+  color: var(--gold);
+  background: rgb(224 192 104 / 0.14);
+  border: 1px solid rgb(224 192 104 / 0.4);
+}
+
+.road-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .comps-label {
@@ -884,8 +1026,49 @@ h2 {
   border-radius: 10px;
 }
 
+.simulate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.source-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.source-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.source-switch button.active {
+  background: rgb(var(--accent-rgb) / 0.18);
+  color: var(--text);
+}
+
 .simulate .fields {
   margin-top: 12px;
+}
+
+.road-window-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  font-style: italic;
 }
 
 .sim-note {
@@ -979,9 +1162,11 @@ h2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
-      "head  sim"
-      "stats sim"
-      "comps sim";
+      "head    head"
+      "stats   stats"
+      "divider divider"
+      "toggle  toggle"
+      "comps   sim";
     column-gap: 36px;
     align-items: start;
   }
@@ -992,6 +1177,15 @@ h2 {
 
   .lookup-stats {
     grid-area: stats;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .section-divider {
+    grid-area: divider;
+  }
+
+  .lookup-toggle-row {
+    grid-area: toggle;
   }
 
   .lookup-comps {
@@ -1203,15 +1397,20 @@ h2 {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.15rem;
+  font-size: 1.5rem;
   line-height: 1;
   color: var(--muted);
   padding: 0 2px;
   transition: color 0.15s ease;
+  z-index: 10;
 }
 .fav-star:hover,
 .fav-star.on {
   color: var(--gold);
+}
+
+.button .fav-star.on {
+  cursor: none;
 }
 /* Saved-athlete shortcuts. A quiet divider ties the row to the card above the
    search form, and chips inherit the card's gender accent (--accent-rgb). */
