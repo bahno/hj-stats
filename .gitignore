@@ -27,3 +27,4 @@ __pycache__/
 
 # Supabase CLI local state
 **/.temp/
+todo.md

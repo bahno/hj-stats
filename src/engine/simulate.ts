@@ -35,7 +35,7 @@ export interface Recompute {
 export function recomputeRanking(base: number[], simScore: number): Recompute {
   const keepCount = Math.min(COUNTING_RESULTS, base.length + 1);
   const kept = [...base, simScore].sort((a, b) => b - a).slice(0, keepCount);
-  const newScore = Math.round(kept.reduce((sum, s) => sum + s, 0) / kept.length);
+  const newScore = Math.floor(kept.reduce((sum, s) => sum + s, 0) / kept.length);
   const atCapacity = base.length >= COUNTING_RESULTS;
   const min = base.length ? Math.min(...base) : -Infinity;
   const counts = !atCapacity || simScore > min;

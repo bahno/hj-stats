@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   type Gender,
+  type RankingType,
   type RankingCalculation,
   type RankingRow,
   fetchHighJumpRanking,
@@ -14,6 +15,7 @@ import {
   type RoadToBirmingham as RoadToBirminghamData,
 } from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
+import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData, type Source } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
@@ -103,6 +105,7 @@ interface Found {
 
 export function AthleteLookup() {
   const [gender, setGender] = useState<Gender>('men');
+  const [rankingType, setRankingType] = useState<RankingType>('road')
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -212,6 +215,13 @@ export function AthleteLookup() {
     setMessage('');
   }
 
+  function changeRankingType(r: RankingType) {
+    setRankingType(r);
+    setStatus('idle');
+    setCandidates([]);
+    setMessage('');
+  }
+
   return (
     <section className={`card lookup ${gender}`}>
       {user && favorites.length > 0 && (
@@ -248,6 +258,7 @@ export function AthleteLookup() {
             autoComplete="off"
           />
         </label>
+        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
         <button className="lookup-btn" type="submit" disabled={status === 'loading'}>
           {status === 'loading' ? 'Searching…' : 'Get ranking'}
         </button>
@@ -259,18 +270,25 @@ export function AthleteLookup() {
         <ul className="lookup-candidates">
           {candidates.map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => select(c, gender)}>
-                <span>{c.athlete}</span>
-                <span className="muted">
-                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
+              <button
+                type="button"
+                className="lookup-candidates-element"
+                onClick={() => select(c, gender)}
+              >
+                <span>
+                  <span>{c.athlete}</span>
+                  <FavoriteStar
+                    slug={c.athleteUrlSlug}
+                    name={c.athlete}
+                    gender={gender}
+                    onNeedSignIn={() => setNeedSignIn(true)}
+                  />
+                </span>
+                <span className="muted" style={{ marginLeft: 'auto' }}>
+                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU · #<span className={placeClass(c.worldPlace)}>{c.worldPlace}</span> World
                 </span>
               </button>
-              <FavoriteStar
-                slug={c.athleteUrlSlug}
-                name={c.athlete}
-                gender={gender}
-                onNeedSignIn={() => setNeedSignIn(true)}
-              />
+
             </li>
           ))}
         </ul>
@@ -454,9 +472,10 @@ function FavoriteStar({
       className={`fav-star ${active ? 'on' : ''}`}
       aria-pressed={active}
       aria-label={active ? 'Remove favorite' : 'Add favorite'}
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (!user) return onNeedSignIn();
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => {});
+        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => { });
       }}
     >
       {active ? '★' : '☆'}

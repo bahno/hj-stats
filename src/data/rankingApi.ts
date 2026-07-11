@@ -16,6 +16,7 @@ export async function trpc<T>(proc: string, input: unknown): Promise<T> {
 }
 
 export type Gender = 'men' | 'women';
+export type RankingType = 'world' | 'european' | 'road';
 
 export interface RankingRow {
   /** Also the WorldAthletics rankingCalculationId — pass to fetchRankingCalculation. */
