@@ -441,7 +441,7 @@ body {
 /* iOS-alarm-style wheel picker (height & position) */
 .wheel {
   position: relative;
-  width: 100%;
+  width: 60%;
   overflow: hidden;
 }
 
@@ -730,15 +730,14 @@ h2 {
 }
 
 .lookup-head {
-  position: relative;
-  /* Reserve space so the name never runs under the top-right favorite star. */
-  padding-right: 30px;
+  text-align: center;
 }
 
-.lookup-head .fav-star {
-  position: absolute;
-  top: 0;
-  right: 0;
+.lookup-name-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .lookup-name {

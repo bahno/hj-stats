@@ -344,14 +344,21 @@ function roadToStat(
   };
 }
 
-/** An athlete's current qualifying-pool position, whichever state they're in — the API's
- *  own value when qualified, or our computed one otherwise. `null` when untracked. */
+/**
+ * An athlete's current qualifying-pool position, whichever state they're in — the API's
+ * own value when qualified, our computed one when not, and the uncapped-ignoring-quota
+ * one (same fallback `roadToStat` displays) when blocked by the country quota, so the
+ * simulate tile always has a real baseline to diff a simulated result against instead of
+ * showing a blank delta. `null` only when untracked or not in the pool at all.
+ */
 function currentRoadPosition(
   road: RoadToBirminghamData | null,
   entry: QualificationEntry | undefined,
 ): number | null {
   if (!road || !entry) return null;
-  return entry.qualified ? entry.qualificationPosition : qualifyingPoolPosition(road, entry.competitor.urlSlug);
+  if (entry.qualified) return entry.qualificationPosition;
+  const pos = qualifyingPoolPosition(road, entry.competitor.urlSlug);
+  return pos ?? qualifyingPoolPositionIgnoringQuota(road, entry.competitor.urlSlug);
 }
 
 function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
@@ -385,17 +392,19 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
   return (
     <div className="lookup-result">
       <div className="lookup-head">
-        <div className="lookup-name">
-          {row.athlete}
-          {isKlara(row.athlete) && <KlaraDiadem />}
+        <div className="lookup-name-row">
+          <div className="lookup-name">
+            {row.athlete}
+            {isKlara(row.athlete) && <KlaraDiadem />}
+          </div>
+          <FavoriteStar
+            slug={row.athleteUrlSlug}
+            name={row.athlete}
+            gender={gender}
+            onNeedSignIn={onNeedSignIn}
+          />
         </div>
         <div className="muted">{row.nationality} · High Jump</div>
-        <FavoriteStar
-          slug={row.athleteUrlSlug}
-          name={row.athlete}
-          gender={gender}
-          onNeedSignIn={onNeedSignIn}
-        />
       </div>
 
       <div className="lookup-stats">
@@ -434,11 +443,6 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
       </div>
 
       <div className="lookup-comps">
-        <div className="comps-label">
-          {rankingType === 'road' && roadCalc
-            ? 'Counting competitions — Road to Birmingham'
-            : 'Counting competitions'}
-        </div>
         <ul className="comp-list">
           {displayedResults.map((r, i) => (
             <li className="comp-item" key={`${r.date}-${i}`}>

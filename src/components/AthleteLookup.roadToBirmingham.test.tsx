@@ -192,9 +192,12 @@ test('accounts for pre-occupied country slots (entry-standard qualifiers), still
         },
         withdrawn: false,
         rejected: false,
-        qualificationDetails: { place: 33, score: 1109 },
+        qualificationDetails: { place: 33, score: 1109, calculationId: 500 },
       },
     ]),
+  );
+  vi.mocked(fetchRankingCalculation).mockImplementation(async (id: number) =>
+    id === 500 ? { averagePerformanceScore: 1109, disciplineList: ['High Jump'], results: [] } : calc,
   );
 
   await openResult();
@@ -209,6 +212,14 @@ test('accounts for pre-occupied country slots (entry-standard qualifiers), still
   expect(within(roadCard).getByText('#15')).toBeInTheDocument();
   expect(within(roadCard).getByText('Next Best')).toBeInTheDocument();
   expect(within(roadCard).getByText('CP 4')).toBeInTheDocument();
+
+  // The simulate tile can still compute a diff even though the athlete is blocked: their
+  // uncapped current position (#15, the same fallback the header shows) is a real
+  // baseline, so the delta isn't left blank.
+  const positionCard = (await screen.findByText('Position', { selector: '.stat-label' })).closest(
+    '.stat',
+  ) as HTMLElement;
+  expect(within(positionCard).queryByText('—')).toBeNull();
 });
 
 test('shows the Road To stat as Not tracked when the athlete has no qualification entry', async () => {
@@ -277,14 +288,12 @@ test('the ranking-type toggle switches the counting competitions list to the Roa
   await openResult();
 
   // rankingType defaults to 'road', so the Birmingham calculation should already be showing.
-  expect(await screen.findByText('Counting competitions — Road to Birmingham')).toBeInTheDocument();
-  expect(screen.getByText('Birmingham Only Meet')).toBeInTheDocument();
+  expect(await screen.findByText('Birmingham Only Meet')).toBeInTheDocument();
   expect(screen.queryByText('World Only Meet')).toBeNull();
 
   fireEvent.click(screen.getByText('European', { selector: '.ranking-type-label' }));
 
-  expect(await screen.findByText('Counting competitions')).toBeInTheDocument();
-  expect(screen.getByText('World Only Meet')).toBeInTheDocument();
+  expect(await screen.findByText('World Only Meet')).toBeInTheDocument();
   expect(screen.queryByText('Birmingham Only Meet')).toBeNull();
 });
 
