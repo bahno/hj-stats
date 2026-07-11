@@ -118,3 +118,21 @@ export function withinWorldRankingQuota(
   const rank = qualifyingPoolRank(peers, score, country, countryPreOccupancy, maxPerCountry);
   return rank != null && rank <= worldRankingSlots;
 }
+
+/**
+ * 1-based rank of `score` among same-country peers only, offset by any qualifiers already
+ * locked in outside the pool for that country — mirrors what the API's own
+ * `countryPosition` field means for a real recorded score, so it can be shown alongside a
+ * simulated result the same way. Ties are resolved in the simulated athlete's favor,
+ * matching `projectedPlace`.
+ */
+export function countryRank(
+  peers: CountryScore[],
+  score: number,
+  country: string,
+  countryPreOccupancy: Record<string, number> = {},
+): number {
+  const preOccupied = countryPreOccupancy[country] ?? 0;
+  const higherCountryPeers = peers.filter((p) => p.country === country && p.score > score).length;
+  return preOccupied + higherCountryPeers + 1;
+}

@@ -91,6 +91,14 @@ export function findQualification(
   return data.qualifications.find((q) => q.competitor.urlSlug === athleteUrlSlug);
 }
 
+/** The world-rankings-pool entries (`q4`/`n4` with a numeric score), in the API's own
+ *  best-to-worst order. */
+function poolEntries(data: RoadToBirmingham): QualificationEntry[] {
+  return data.qualifications.filter(
+    (q) => (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') && q.qualificationDetails.score != null,
+  );
+}
+
 /**
  * Scores + countries of the other athletes in the world-rankings pool (qualificationTypeId
  * q4/n4, i.e. those with a numeric score) — the peer set ranking movement actually competes
@@ -101,13 +109,8 @@ export function worldRankingPoolPeers(
   data: RoadToBirmingham,
   excludeUrlSlug: string,
 ): CountryScore[] {
-  return data.qualifications
-    .filter(
-      (q) =>
-        q.competitor.urlSlug !== excludeUrlSlug &&
-        (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') &&
-        q.qualificationDetails.score != null,
-    )
+  return poolEntries(data)
+    .filter((q) => q.competitor.urlSlug !== excludeUrlSlug)
     .map((q) => ({ score: q.qualificationDetails.score as number, country: q.competitor.country }));
 }
 
@@ -148,11 +151,7 @@ export function countryPreOccupancy(data: RoadToBirmingham): Record<string, numb
  * top of it. Returns `null` if the athlete isn't in the pool, or is blocked by the quota.
  */
 export function qualifyingPoolPosition(data: RoadToBirmingham, urlSlug: string): number | null {
-  const pool = data.qualifications.filter(
-    (q) =>
-      (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') &&
-      q.qualificationDetails.score != null,
-  );
+  const pool = poolEntries(data);
   const targetIndex = pool.findIndex((q) => q.competitor.urlSlug === urlSlug);
   if (targetIndex === -1) return null;
 
@@ -171,4 +170,19 @@ export function qualifyingPoolPosition(data: RoadToBirmingham, urlSlug: string):
     if (i === targetIndex) return nonRankingSlots + rank;
   }
   return null;
+}
+
+/**
+ * An athlete's pool rank ignoring the per-country cap entirely — their plain position in
+ * the pool's own best-to-worst order, offset by the fixed non-ranking slots. Used to still
+ * show a rank for an athlete who's blocked by the country quota (`qualifyingPoolPosition`
+ * returns `null` for them): a real, if not officially qualifying, position is more useful
+ * than a blank dash. Returns `null` only if the athlete isn't in the pool at all.
+ */
+export function qualifyingPoolPositionIgnoringQuota(data: RoadToBirmingham, urlSlug: string): number | null {
+  const pool = poolEntries(data);
+  const targetIndex = pool.findIndex((q) => q.competitor.urlSlug === urlSlug);
+  if (targetIndex === -1) return null;
+  const nonRankingSlots = data.entryNumber - data.numberOfCompetitorsFilledUpByWorldRankings;
+  return nonRankingSlots + targetIndex + 1;
 }

@@ -2,6 +2,8 @@ import { expect, test } from 'vitest';
 import {
   countryPreOccupancy,
   findQualification,
+  qualifyingPoolPosition,
+  qualifyingPoolPositionIgnoringQuota,
   worldRankingPoolPeers,
   type QualificationEntry,
   type RoadToBirmingham,
@@ -98,4 +100,35 @@ test('countryPreOccupancy counts fixed-route qualifiers per country, excluding t
     ],
   };
   expect(countryPreOccupancy(pool)).toEqual({ GBR: 2 });
+});
+
+test('qualifyingPoolPositionIgnoringQuota still ranks an athlete blocked by the country quota', () => {
+  const pool: RoadToBirmingham = {
+    ...data,
+    qualifications: [
+      // Two GBR entry-standard qualifiers pre-occupy the cap.
+      entry('a', { competitor: { athleteId: 2, name: 'A', country: 'GBR', urlSlug: 'a' } }),
+      entry('b', { competitor: { athleteId: 3, name: 'B', country: 'GBR', urlSlug: 'b' } }),
+      // A GBR pool peer takes GBR's one remaining slot.
+      entry('c', {
+        qualificationTypeId: 'q4',
+        qualified: true,
+        competitor: { athleteId: 4, name: 'C', country: 'GBR', urlSlug: 'c' },
+        qualificationDetails: { score: 1119 },
+      }),
+      // Our athlete: a 2nd GBR pool member, blocked by the now-full cap.
+      entry('self', {
+        qualificationTypeId: 'n4',
+        qualified: false,
+        countryPosition: 4,
+        competitor: { athleteId: 5, name: 'Self', country: 'GBR', urlSlug: 'self' },
+        qualificationDetails: { score: 1109 },
+      }),
+    ],
+  };
+  // Blocked: no quota-capped position at all.
+  expect(qualifyingPoolPosition(pool, 'self')).toBeNull();
+  // But still a plain pool position (nonRankingSlots 13 + pool index 1 (0-based) + 1 = 15),
+  // ignoring the country cap — used to still show a rank instead of a blank dash.
+  expect(qualifyingPoolPositionIgnoringQuota(pool, 'self')).toBe(15);
 });

@@ -12,6 +12,7 @@ import {
   fetchRoadToBirmingham,
   findQualification,
   qualifyingPoolPosition,
+  qualifyingPoolPositionIgnoringQuota,
   worldRankingPoolPeers,
   type QualificationEntry,
   type RoadToBirmingham as RoadToBirminghamData,
@@ -309,23 +310,38 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 /**
- * The Road to # stat card's value/badge for the three possible states. When qualified,
+ * The Road to # stat card's value/badges for the three possible states. When qualified,
  * the API's own `qualificationPosition` is authoritative. When not yet qualified, the API
  * gives no position at all — `qualificationDetails.place` is the athlete's raw World
  * Ranking place (unrelated to the qualifying pool), not their standing in the qualifying
  * order, so `qualifyingPoolPosition` computes it from the pool's own ordering instead.
+ *
+ * When blocked by the country quota specifically (`qualifyingPoolPosition` returns
+ * `null` for a real pool entry), still show a rank — `qualifyingPoolPositionIgnoringQuota`
+ * ignores the cap entirely — alongside a `countryPill` naming the athlete's actual
+ * position within their own country (from the API's `countryPosition`), so the block
+ * reads as "4th in your country, cap is 3" rather than a blank dash.
  */
 function roadToStat(
   road: RoadToBirminghamData | null,
   entry: QualificationEntry | undefined,
-): { value: string; label: string; pill: 'qualified' | 'next' | null } {
-  if (!road || !entry) return { value: '—', label: 'Not tracked', pill: null };
+): { value: string; label: string; pill: 'qualified' | 'next' | null; countryPill: string | null } {
+  if (!road || !entry) return { value: '—', label: 'Not tracked', pill: null, countryPill: null };
   if (entry.qualified) {
     const pos = entry.qualificationPosition;
-    return { value: pos != null ? `#${pos}` : '—', label: 'Qualified', pill: 'qualified' };
+    return { value: pos != null ? `#${pos}` : '—', label: 'Qualifying', pill: 'qualified', countryPill: null };
   }
   const pos = qualifyingPoolPosition(road, entry.competitor.urlSlug);
-  return { value: pos != null ? `#${pos}` : '—', label: 'Next Best', pill: 'next' };
+  if (pos != null) {
+    return { value: `#${pos}`, label: 'Next Best', pill: 'next', countryPill: null };
+  }
+  const uncapped = qualifyingPoolPositionIgnoringQuota(road, entry.competitor.urlSlug);
+  return {
+    value: uncapped != null ? `#${uncapped}` : '—',
+    label: 'Next Best',
+    pill: 'next',
+    countryPill: entry.countryPosition != null ? `CP ${entry.countryPosition}` : null,
+  };
 }
 
 /** An athlete's current qualifying-pool position, whichever state they're in — the API's
@@ -401,7 +417,10 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
           <div className="stat-label">Road To</div>
           <div className="stat-value">{roadStat.value}</div>
           {roadStat.pill ? (
-            <div className={`road-badge ${roadStat.pill}`}>{roadStat.label}</div>
+            <div className="road-badges">
+              <div className={`road-badge ${roadStat.pill}`}>{roadStat.label}</div>
+              {roadStat.countryPill && <div className="road-badge cp">{roadStat.countryPill}</div>}
+            </div>
           ) : (
             <div className="stat-delta">{roadStat.label}</div>
           )}

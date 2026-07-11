@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CountryScore } from '../data/types';
 import {
+  countryRank,
   projectedPlace,
   qualifyingPoolRank,
   qualifyingPosition,
@@ -142,5 +143,23 @@ describe('withinWorldRankingQuota', () => {
   it('is false when pre-occupied country slots leave no room, even with slots remaining', () => {
     const pool = peers([[1119, 'GBR']]);
     expect(withinWorldRankingQuota(pool, 1109, 'GBR', 20, { GBR: 2 })).toBe(false);
+  });
+});
+
+describe('countryRank', () => {
+  it('ranks by score among same-country peers only', () => {
+    const pool = peers([
+      [1300, 'ITA'],
+      [1100, 'ESP'], // different country — doesn't count
+      [1050, 'ITA'],
+    ]);
+    expect(countryRank(pool, 1150, 'ITA')).toBe(2); // behind the 1300 Italian only
+  });
+
+  it('adds pre-occupied slots from outside the pool', () => {
+    const pool = peers([[1119, 'GBR']]);
+    // 2 GBR entry-standard qualifiers pre-occupy positions 1-2; the pool peer (1119)
+    // is 3rd; a lower GBR score is 4th — same numbering as the API's countryPosition.
+    expect(countryRank(pool, 1109, 'GBR', { GBR: 2 })).toBe(4);
   });
 });

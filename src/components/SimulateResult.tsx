@@ -3,6 +3,7 @@ import type { CategoryCode, CountryScore, Gender, RankingType } from '../data/ty
 import { categories, scoringTable } from '../engine/data';
 import { availableMarks, defaultHeightFor } from '../engine/marks';
 import {
+  countryRank,
   projectedPlace,
   qualifyingPosition,
   recomputeRanking,
@@ -98,13 +99,22 @@ export function SimulateResult({
         road.worldRankingSlots,
         road.countryPreOccupancy,
       );
+      // Blocked by the country quota: still show a rank ignoring the cap, plus a pill
+      // naming the simulated country position, instead of a blank dash.
+      const displayPosition =
+        newPosition ?? road.nonRankingSlots + projectedPlace(road.peers.map((p) => p.score), sim.newScore);
+      const countryPill =
+        newPosition == null
+          ? `CP ${countryRank(road.peers, sim.newScore, road.country, road.countryPreOccupancy)}`
+          : null;
       return {
         label: 'Position',
-        value: newPosition != null ? `#${newPosition}` : '—',
-        note: newPosition == null ? 'Blocked by country quota' : qualifies ? 'Qualifying' : 'Next Best',
+        value: `#${displayPosition}`,
+        note: qualifies ? 'Qualifying' : 'Next Best',
+        countryPill,
         delta:
-          newPosition != null && road.currentPosition != null
-            ? delta(newPosition, road.currentPosition, true)
+          road.currentPosition != null
+            ? delta(displayPosition, road.currentPosition, true)
             : { text: '—', tone: 'flat' as Tone },
       };
     }
@@ -117,6 +127,7 @@ export function SimulateResult({
       label: 'Position',
       value: `#${newPlace}`,
       note: null as string | null,
+      countryPill: null as string | null,
       delta: delta(newPlace, currentPlace, true),
     };
   }, [rankingType, road, sim.newScore, peerScores, currentPlace]);
@@ -154,8 +165,11 @@ export function SimulateResult({
               <div className="stat-value">{standing.value}</div>
               <div className={`stat-delta ${standing.delta.tone}`}>{standing.delta.text}</div>
               {standing.note && (
-                <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'next'}`}>
-                  {standing.note}
+                <div className="road-badges">
+                  <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'next'}`}>
+                    {standing.note}
+                  </div>
+                  {standing.countryPill && <div className="road-badge cp">{standing.countryPill}</div>}
                 </div>
               )}
             </div>

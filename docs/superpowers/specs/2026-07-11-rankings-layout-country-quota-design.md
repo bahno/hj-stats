@@ -175,3 +175,30 @@ two different reasons:
    "current position" from the athlete's score via the simulation-oriented function — the
    header stat and the simulate tile's delta baseline are now guaranteed to agree, since
    they're literally the same computation done once.
+
+## Addendum (2026-07-11): still show a rank when blocked by the country quota
+
+Follow-up request: rather than a blank dash when an athlete is blocked by the 3-per-country
+cap, still show a rank, plus a small pill naming their actual country standing.
+
+- **`birminghamApi.qualifyingPoolPositionIgnoringQuota`**: an athlete's plain position in
+  the pool's own order (`nonRankingSlots` + their index + 1), ignoring the per-country cap
+  entirely. Used only as a fallback display value when `qualifyingPoolPosition` returns
+  `null` (blocked) — the "official" capped position remains authoritative everywhere else
+  (qualifying checks, deltas).
+- **`engine/simulate.countryRank`**: the simulated-score equivalent — 1-based rank among
+  same-country peers only, offset by `countryPreOccupancy`, mirroring what the API's
+  `countryPosition` field means for a real recorded score. Ties resolve in the simulated
+  athlete's favor, same convention as `projectedPlace`.
+- Both the header "Road To #" stat and the simulate tile now render a `CP {n}` pill
+  (yellow/muted — reusing the `--gold` token, new `.road-badge.cp` style) next to the
+  "Next Best" pill whenever the athlete (or the simulated result) is blocked by the
+  country quota specifically — e.g. Divine Duruaku (GBR): blocked because two GBR
+  entry-standard qualifiers plus one GBR pool qualifier already fill the cap, position
+  #29 (ignoring the cap) with a "CP 4" pill (4th-best Briton, one over the cap of 3).
+  Verified live against this exact case.
+- The simulate tile's "Blocked by country quota" note text is gone — it's now just
+  "Next Best" (matching the header) with the `CP` pill carrying the distinguishing
+  information, so a simulated result and a real result read the same way.
+- New `.road-badges` flex wrapper holds one or two pills side by side, replacing the
+  single always-one-badge assumption both call sites used to make.

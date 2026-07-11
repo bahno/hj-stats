@@ -104,7 +104,7 @@ test('shows the Road To stat as Qualified with the official position', async () 
 
   expect(await screen.findByText('Road To', { selector: '.stat-label' })).toBeInTheDocument();
   expect(screen.getByText('#2')).toBeInTheDocument();
-  expect(screen.getByText('Qualified', { selector: '.road-badge' })).toBeInTheDocument();
+  expect(screen.getByText('Qualifying', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
 test('shows the Road To stat as Next Best with a computed qualifying-pool position (not the raw World Ranking place)', async () => {
@@ -139,7 +139,7 @@ test('shows the Road To stat as Next Best with a computed qualifying-pool positi
   expect(screen.getByText('Next Best', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
-test('accounts for pre-occupied country slots (entry-standard qualifiers) when computing the Next Best position', async () => {
+test('accounts for pre-occupied country slots (entry-standard qualifiers), still showing an uncapped rank and a CP pill when blocked', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       // GBR already has 2 entry-standard qualifiers ahead of the pool.
@@ -203,10 +203,12 @@ test('accounts for pre-occupied country slots (entry-standard qualifiers) when c
     '.stat',
   ) as HTMLElement;
   // Blocked outright: 2 entry-standard qualifiers + 1 pool qualifier already fill GBR's
-  // 3-per-country cap, so there's no numeric position at all — ignoring the entry-standard
-  // qualifiers would have wrongly shown a real (too-optimistic) position.
-  expect(within(roadCard).getByText('—')).toBeInTheDocument();
+  // 3-per-country cap, so there's no quota-capped position — but a rank ignoring the cap
+  // is still shown (nonRankingSlots 13 + pool index 1 (0-based) + 1 = #15), plus a CP pill
+  // naming their actual 4th-in-country position (from the API's countryPosition: 4).
+  expect(within(roadCard).getByText('#15')).toBeInTheDocument();
   expect(within(roadCard).getByText('Next Best')).toBeInTheDocument();
+  expect(within(roadCard).getByText('CP 4')).toBeInTheDocument();
 });
 
 test('shows the Road To stat as Not tracked when the athlete has no qualification entry', async () => {
@@ -286,7 +288,7 @@ test('the ranking-type toggle switches the counting competitions list to the Roa
   expect(screen.queryByText('Birmingham Only Meet')).toBeNull();
 });
 
-test('shows "Blocked by country quota" in the simulate tile when 3 compatriots already rank above the pool', async () => {
+test('shows "Next Best" with a CP pill in the simulate tile when 3 compatriots already occupy the country quota', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
@@ -346,9 +348,12 @@ test('shows "Blocked by country quota" in the simulate tile when 3 compatriots a
 
   await openResult();
 
-  // Default rankingType is 'road': three Italians already outrank both the athlete's
-  // current score and any plausible simulated score, so the 3-per-country cap blocks them.
-  expect(await screen.findByText('Blocked by country quota')).toBeInTheDocument();
+  // Default rankingType is 'road': three Italians already outrank any plausible simulated
+  // score, so the 3-per-country cap blocks the simulated result outright — the simulate
+  // tile still shows "Next Best" (not a blank dash) plus a CP pill for the simulated
+  // country standing (1 + 3 higher-scoring ITA peers = 4th in country).
+  expect(await screen.findByText('Next Best', { selector: '.road-badge' })).toBeInTheDocument();
+  expect(screen.getByText('CP 4', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
 test('the rest of the result still renders when the Road to Birmingham fetch fails', async () => {
