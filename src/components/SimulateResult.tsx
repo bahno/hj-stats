@@ -72,7 +72,7 @@ export function SimulateResult({
             <div className={`stat-delta ${scoreD.tone}`}>{scoreD.text}</div>
           </div>
           <div className={`stat ${placeD.tone}`}>
-            <div className="stat-label">New European</div>
+            <div className="stat-label">New Euro</div>
             <div className="stat-value">#{sim.newPlace}</div>
             <div className={`stat-delta ${placeD.tone}`}>{placeD.text}</div>
           </div>

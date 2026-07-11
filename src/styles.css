@@ -365,6 +365,79 @@ body {
   border-color: rgb(var(--accent-rgb) / 0.45);
 }
 
+.ranking-type-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  width: 100%;
+  max-width: 300px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.ranking-type-knob {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(33% - 2px);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.ranking-type-knob.men {
+  background: rgb(47 95 224 / 0.22);
+  border-color: rgb(47 95 224 / 0.5);
+}
+
+.ranking-type-knob.women {
+  background: rgb(224 68 122 / 0.2);
+  border-color: rgb(224 68 122 / 0.5);
+}
+
+.ranking-type-switch.world .ranking-type-knob {
+  transform: translateX(0);
+}
+
+.ranking-type-switch.european .ranking-type-knob {
+  transform: translateX(102%);
+}
+
+.ranking-type-switch.road .ranking-type-knob {
+  transform: translateX(205%);
+}
+
+.ranking-type-label {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+
+.ranking-type-switch.world .ranking-type-label.world {
+  color: var(--text);
+}
+
+.ranking-type-switch.european .ranking-type-label.european {
+  color: var(--text);
+}
+
+.ranking-type-switch.road .ranking-type-label.road {
+  color: var(--text);
+}
+
+.ranking-type-switch:focus-visible {
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
 /* iOS-alarm-style wheel picker (height & position) */
 .wheel {
   position: relative;
@@ -631,10 +704,11 @@ h2 {
   gap: 6px;
 }
 
-.lookup-candidates button {
+.lookup-candidates-element {
   width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 10px 12px;
   background: var(--bg);
@@ -1208,10 +1282,15 @@ h2 {
   color: var(--muted);
   padding: 0 2px;
   transition: color 0.15s ease;
+  z-index: 10;
 }
 .fav-star:hover,
 .fav-star.on {
   color: var(--gold);
+}
+
+.button .fav-star.on {
+  cursor: none;
 }
 /* Saved-athlete shortcuts. A quiet divider ties the row to the card above the
    search form, and chips inherit the card's gender accent (--accent-rgb). */

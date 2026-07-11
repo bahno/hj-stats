@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   type Gender,
+  type RankingType,
   type RankingCalculation,
   type RankingRow,
   fetchHighJumpRanking,
@@ -231,18 +232,25 @@ export function AthleteLookup() {
         <ul className="lookup-candidates">
           {candidates.map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => select(c, gender)}>
-                <span>{c.athlete}</span>
-                <span className="muted">
-                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU
+              <button
+                type="button"
+                className="lookup-candidates-element"
+                onClick={() => select(c, gender)}
+              >
+                <span>
+                  <span>{c.athlete}</span>
+                  <FavoriteStar
+                    slug={c.athleteUrlSlug}
+                    name={c.athlete}
+                    gender={gender}
+                    onNeedSignIn={() => setNeedSignIn(true)}
+                  />
+                </span>
+                <span className="muted" style={{ marginLeft: 'auto' }}>
+                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU · #<span className={placeClass(c.worldPlace)}>{c.worldPlace}</span> World
                 </span>
               </button>
-              <FavoriteStar
-                slug={c.athleteUrlSlug}
-                name={c.athlete}
-                gender={gender}
-                onNeedSignIn={() => setNeedSignIn(true)}
-              />
+
             </li>
           ))}
         </ul>
@@ -287,7 +295,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
 
       <div className="lookup-stats">
         <div className="stat">
-          <div className="stat-label">Ranking score</div>
+          <div className="stat-label">Score</div>
           <div className="stat-value">{row.rankingScore}</div>
           {scoreDelta && <div className="stat-delta">{scoreDelta} vs last week</div>}
         </div>
@@ -355,9 +363,10 @@ function FavoriteStar({
       className={`fav-star ${active ? 'on' : ''}`}
       aria-pressed={active}
       aria-label={active ? 'Remove favorite' : 'Add favorite'}
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (!user) return onNeedSignIn();
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => {});
+        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => { });
       }}
     >
       {active ? '★' : '☆'}

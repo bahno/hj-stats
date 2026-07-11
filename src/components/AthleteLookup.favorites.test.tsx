@@ -75,6 +75,44 @@ test('clicking a favorite chip re-runs the lookup and renders the result', async
   expect(fetchRankingCalculation).toHaveBeenCalledWith(42);
 });
 
+test('clicking a favorite star in the candidates list does not select the row', async () => {
+  const row1: RankingRow = {
+    id: 42,
+    place: 1,
+    worldPlace: 3,
+    athlete: 'Gianmarco Tamberi',
+    athleteUrlSlug: 'tamberi',
+    nationality: 'ITA',
+    rankingScore: 1400,
+    previousPlace: 2,
+    previousRankingScore: 1380,
+  };
+  const row2: RankingRow = {
+    id: 43,
+    place: 2,
+    worldPlace: 4,
+    athlete: 'Lorenzo Tamberi',
+    athleteUrlSlug: 'lorenzo-tamberi',
+    nationality: 'ITA',
+    rankingScore: 1390,
+    previousPlace: 3,
+    previousRankingScore: 1375,
+  };
+  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row1, row2] });
+
+  render(<AthleteLookup />);
+
+  fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), {
+    target: { value: 'Tamberi' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Get ranking' }));
+
+  const star = await screen.findByRole('button', { name: 'Add favorite' });
+  fireEvent.click(star);
+
+  expect(fetchRankingCalculation).not.toHaveBeenCalled();
+});
+
 test('switching gender clears the selected favorite name and result', async () => {
   const row: RankingRow = {
     id: 42,
