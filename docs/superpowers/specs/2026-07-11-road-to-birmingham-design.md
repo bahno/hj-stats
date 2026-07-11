@@ -157,3 +157,17 @@ World/European ranking window, so a result just outside one window but inside th
 gets swapped for the next-best counting result. Added `firstRankingDay`/`lastRankingDay`
 to `RoadToBirmingham` and surfaced them as a caption under the switch when Birmingham
 mode is active, so this reads as intentional rather than a data mismatch.
+
+**Follow-up (same day): sync the counting-competitions list to the switch.** The left-side
+"5 counting results" list (`.lookup-comps`) always showed the live World/European
+calculation's results regardless of which mode the simulator was in, which visually
+contradicted the "Scoped to the Birmingham qualifying window" caption once it existed.
+Lifted the `source` toggle state from `SimulateResult` up to `Result` (passed down as a
+controlled `source`/`onSourceChange` prop pair, exporting `Source` from
+`SimulateResult.tsx`) so both the list and the simulator read the same selection; the
+list now renders `roadCalc.results` instead of `calc.results` when Birmingham mode is
+active (falling back to the World list if `roadCalc` isn't available), with a label
+("Counting competitions — Road to Birmingham") making the active source explicit.
+Verified live against Thomas Carmoy: switching to Birmingham mode correctly drops his
+16 JUL 2025 Liège result (outside the qualifying window) and shows the second Rome 2024
+result in its place, matching the underlying API data exactly.

@@ -14,7 +14,7 @@ import { HeightSelect } from './inputs/HeightSelect';
 import { PositionSelect } from './inputs/PositionSelect';
 
 type Tone = 'up' | 'down' | 'flat';
-type Source = 'world' | 'birmingham';
+export type Source = 'world' | 'birmingham';
 
 function delta(next: number, current: number, betterIsLower: boolean): { text: string; tone: Tone } {
   const d = next - current;
@@ -44,6 +44,8 @@ export function SimulateResult({
   currentPlace,
   peerScores,
   road,
+  source,
+  onSourceChange,
 }: {
   gender: Gender;
   baseScores: number[];
@@ -51,12 +53,13 @@ export function SimulateResult({
   currentPlace: number; // current European place
   peerScores: number[]; // European peers' ranking scores (self excluded)
   road?: RoadSimData;
+  source: Source;
+  onSourceChange: (source: Source) => void;
 }) {
   const marks = useMemo(() => availableMarks(scoringTable, gender), [gender]);
   const [mark, setMark] = useState(() => defaultHeightFor(scoringTable, gender));
   const [category, setCategory] = useState<CategoryCode>('A');
   const [place, setPlace] = useState(1);
-  const [source, setSource] = useState<Source>('world');
 
   const effectiveMark = marks.includes(mark) ? mark : defaultHeightFor(scoringTable, gender);
   const useBirmingham = source === 'birmingham' && !!road;
@@ -108,7 +111,7 @@ export function SimulateResult({
               role="tab"
               aria-selected={source === 'world'}
               className={source === 'world' ? 'active' : ''}
-              onClick={() => setSource('world')}
+              onClick={() => onSourceChange('world')}
             >
               World ranking
             </button>
@@ -117,7 +120,7 @@ export function SimulateResult({
               role="tab"
               aria-selected={source === 'birmingham'}
               className={source === 'birmingham' ? 'active' : ''}
-              onClick={() => setSource('birmingham')}
+              onClick={() => onSourceChange('birmingham')}
             >
               Road to Birmingham
             </button>

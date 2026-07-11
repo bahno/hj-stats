@@ -14,7 +14,7 @@ import {
   type RoadToBirmingham as RoadToBirminghamData,
 } from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
-import { SimulateResult, type RoadSimData } from './SimulateResult';
+import { SimulateResult, type RoadSimData, type Source } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
@@ -291,6 +291,7 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 
 function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
   const { row, calc, peers, gender, road, roadCalc } = found;
+  const [source, setSource] = useState<Source>('world');
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
@@ -298,6 +299,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
 
   const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
+  const displayedResults = source === 'birmingham' && roadCalc ? roadCalc.results : results;
   const roadSim: RoadSimData | undefined =
     road && roadCalc
       ? {
@@ -348,8 +350,13 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
       <RoadToBirmingham entry={roadEntry} entryNumber={road?.entryNumber} />
 
       <div className="lookup-comps">
+        <div className="comps-label">
+          {source === 'birmingham' && roadCalc
+            ? 'Counting competitions — Road to Birmingham'
+            : 'Counting competitions'}
+        </div>
         <ul className="comp-list">
-          {results.map((r, i) => (
+          {displayedResults.map((r, i) => (
             <li className="comp-item" key={`${r.date}-${i}`}>
               <div className="comp-main">
                 <div className="comp-name">{r.competition}</div>
@@ -376,6 +383,8 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         currentPlace={row.place}
         peerScores={peerScores}
         road={roadSim}
+        source={source}
+        onSourceChange={setSource}
       />
     </div>
   );

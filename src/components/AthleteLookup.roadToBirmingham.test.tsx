@@ -177,10 +177,27 @@ test('shows a simulation source switch for athletes in the world-rankings pool, 
       },
     ]),
   );
+  const worldOnlyResult = {
+    date: '01 JAN 2026',
+    competition: 'World Only Meet',
+    discipline: 'High Jump',
+    category: 'A',
+    race: '',
+    place: '1.',
+    mark: '2.20',
+    performanceScore: 1196,
+    resultScore: 1196,
+    placingScore: 0,
+  };
+  const birminghamOnlyResult = {
+    ...worldOnlyResult,
+    date: '01 FEB 2026',
+    competition: 'Birmingham Only Meet',
+  };
   vi.mocked(fetchRankingCalculation).mockImplementation(async (id: number) =>
     id === 999
-      ? { averagePerformanceScore: 1196, disciplineList: ['High Jump'], results: [] }
-      : calc,
+      ? { averagePerformanceScore: 1196, disciplineList: ['High Jump'], results: [birminghamOnlyResult] }
+      : { ...calc, results: [worldOnlyResult] },
   );
 
   await openResult();
@@ -188,6 +205,8 @@ test('shows a simulation source switch for athletes in the world-rankings pool, 
   expect(await screen.findByText('World ranking')).toBeInTheDocument();
   expect(screen.getByText('New European')).toBeInTheDocument();
   expect(screen.queryByText(/Scoped to the Birmingham qualifying window/)).toBeNull();
+  expect(screen.getByText('World Only Meet')).toBeInTheDocument();
+  expect(screen.queryByText('Birmingham Only Meet')).toBeNull();
 
   fireEvent.click(screen.getByText('Road to Birmingham', { selector: 'button' }));
 
@@ -196,6 +215,9 @@ test('shows a simulation source switch for athletes in the world-rankings pool, 
   expect(
     screen.getByText(/Scoped to the Birmingham qualifying window \(27 JUL 2025 – 26 JUL 2026\)/),
   ).toBeInTheDocument();
+  expect(screen.getByText('Birmingham Only Meet')).toBeInTheDocument();
+  expect(screen.queryByText('World Only Meet')).toBeNull();
+  expect(screen.getByText('Counting competitions — Road to Birmingham')).toBeInTheDocument();
 });
 
 test('does not show the switch when the athlete has no world-rankings calculation (e.g. qualified by entry standard)', async () => {
