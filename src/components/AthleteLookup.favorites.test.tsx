@@ -29,6 +29,7 @@ vi.mock('../data/birminghamApi', async (orig) => ({
     entryNumber: 30,
     entryStandard: '2.27',
     rankDate: '',
+    numberOfCompetitorsFilledUpByWorldRankings: 17,
     qualifications: [],
   })),
 }));

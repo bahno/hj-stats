@@ -9,11 +9,12 @@ import {
 import {
   fetchRoadToBirmingham,
   findQualification,
+  worldRankingPoolPeerScores,
   type QualificationEntry,
   type RoadToBirmingham as RoadToBirminghamData,
 } from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
-import { SimulateResult } from './SimulateResult';
+import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
@@ -96,6 +97,8 @@ interface Found {
   gender: Gender;
   /** null when the fetch failed or hasn't been resolved — rendered as "not tracked". */
   road: RoadToBirminghamData | null;
+  /** null unless the athlete is in the Birmingham world-rankings pool and the fetch succeeded. */
+  roadCalc: RankingCalculation | null;
 }
 
 export function AthleteLookup() {
@@ -151,7 +154,17 @@ export function AthleteLookup() {
         ranking(g),
         roadToBirmingham(g),
       ]);
-      setFound({ row, calc, peers: list.rows, gender: g, road });
+      const roadCalculationId = road
+        ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
+        : undefined;
+      const roadCalc =
+        roadCalculationId != null
+          ? await fetchRankingCalculation(roadCalculationId).catch((e) => {
+              console.warn('Road to Birmingham calculation fetch failed', e);
+              return null;
+            })
+          : null;
+      setFound({ row, calc, peers: list.rows, gender: g, road, roadCalc });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -277,12 +290,25 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
-  const { row, calc, peers, gender, road } = found;
+  const { row, calc, peers, gender, road, roadCalc } = found;
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
+
+  const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
+  const roadSim: RoadSimData | undefined =
+    road && roadCalc
+      ? {
+          baseScores: roadCalc.results.map((r) => r.performanceScore),
+          currentScore: roadCalc.averagePerformanceScore,
+          peerScores: worldRankingPoolPeerScores(road, row.athleteUrlSlug),
+          nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
+          worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
+          entryNumber: road.entryNumber,
+        }
+      : undefined;
 
   return (
     <div className="lookup-result">
@@ -317,7 +343,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         </div>
       </div>
 
-      <RoadToBirmingham road={road} athleteUrlSlug={row.athleteUrlSlug} />
+      <RoadToBirmingham entry={roadEntry} entryNumber={road?.entryNumber} />
 
       <div className="lookup-comps">
         <ul className="comp-list">
@@ -347,6 +373,7 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         currentScore={row.rankingScore}
         currentPlace={row.place}
         peerScores={peerScores}
+        road={roadSim}
       />
     </div>
   );
@@ -362,14 +389,12 @@ function qualificationDetail(entry: QualificationEntry): string {
 }
 
 function RoadToBirmingham({
-  road,
-  athleteUrlSlug,
+  entry,
+  entryNumber,
 }: {
-  road: RoadToBirminghamData | null;
-  athleteUrlSlug: string;
+  entry: QualificationEntry | undefined;
+  entryNumber: number | undefined;
 }) {
-  const entry = road ? findQualification(road, athleteUrlSlug) : undefined;
-
   if (!entry) {
     return (
       <div className="road-to-birmingham">
@@ -390,7 +415,7 @@ function RoadToBirmingham({
       </div>
       {entry.qualified && entry.qualificationPosition != null && (
         <div className="muted road-position">
-          #{entry.qualificationPosition} of {road?.entryNumber} qualifying spots
+          #{entry.qualificationPosition} of {entryNumber} qualifying spots
         </div>
       )}
     </div>

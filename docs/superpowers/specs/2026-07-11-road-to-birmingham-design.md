@@ -122,3 +122,28 @@ Reuses existing tokens — no new colors invented:
 - `AthleteLookup.roadToBirmingham.test.tsx`: component tests, mocking
   `fetchRoadToBirmingham`, for all three states (qualified / bubble / not tracked) plus
   a fetch-failure case asserting the rest of the result still renders.
+
+## Addendum (2026-07-11): Simulate source switch
+
+Extends the Simulate panel with a switch between two bases for the projection:
+
+- **World ranking** (default, unchanged) — the athlete's live World/European ranking
+  calculation and European peers, as before.
+- **Road to Birmingham** — the athlete's Birmingham-scoped counting results (fetched via
+  the existing `fetchRankingCalculation`, but keyed on the qualification entry's
+  `qualificationDetails.calculationId` rather than their live ranking id) and peer scores
+  drawn from the world-rankings pool (`q4`/`n4` entries) instead of the full European
+  ranking list.
+- The switch only appears when the athlete has a world-rankings-pool entry (i.e. a
+  `calculationId` — entry-standard/label-qualified or untracked athletes only ever see
+  "World ranking").
+- New pure engine helpers (`qualifyingPosition`, `withinWorldRankingQuota` in
+  `engine/simulate.ts`) combine the fixed non-ranking-route slot count
+  (`entryNumber - numberOfCompetitorsFilledUpByWorldRankings`) with the existing
+  `projectedPlace` pool rank to compute a real "#N of 30" qualifying position and whether
+  it crosses into the qualifying bracket — this mirrors the arithmetic the API itself
+  uses (verified against a live example: 13 entry-standard spots + 1st in the ranking
+  pool = qualifying position 14).
+- Fetching the Birmingham-scoped calculation is decoupled the same way as the Road to
+  Birmingham fetch itself: failure leaves `roadCalc` `null` and the switch simply doesn't
+  appear, rather than breaking the result.

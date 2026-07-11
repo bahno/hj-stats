@@ -33,6 +33,8 @@ export interface QualificationEntry {
     date?: string;
     place?: number; // world-rankings qualifiers
     score?: number;
+    /** The WorldAthletics rankingCalculationId behind `score` — world-rankings qualifiers only. */
+    calculationId?: number;
   };
 }
 
@@ -40,6 +42,10 @@ export interface RoadToBirmingham {
   entryNumber: number; // total qualifying spots
   entryStandard: string; // e.g. "2.27"
   rankDate: string;
+  /** Of entryNumber, how many spots are filled by the world-rankings pool (q4/n4) rather
+   *  than entry standard/other fixed routes — the size of the pool that ranking movement
+   *  actually competes over. */
+  numberOfCompetitorsFilledUpByWorldRankings: number;
   qualifications: QualificationEntry[];
 }
 
@@ -47,6 +53,7 @@ interface QualifyingSystemResponse {
   entryNumber: number;
   entryStandard: string;
   rankDate: string;
+  numberOfCompetitorsFilledUpByWorldRankings: number;
   qualifications: QualificationEntry[];
 }
 
@@ -60,6 +67,7 @@ export async function fetchRoadToBirmingham(gender: Gender): Promise<RoadToBirmi
     entryNumber: data.entryNumber,
     entryStandard: data.entryStandard,
     rankDate: data.rankDate,
+    numberOfCompetitorsFilledUpByWorldRankings: data.numberOfCompetitorsFilledUpByWorldRankings,
     qualifications: data.qualifications,
   };
 }
@@ -70,4 +78,23 @@ export function findQualification(
   athleteUrlSlug: string,
 ): QualificationEntry | undefined {
   return data.qualifications.find((q) => q.competitor.urlSlug === athleteUrlSlug);
+}
+
+/**
+ * Scores of the other athletes in the world-rankings pool (qualificationTypeId q4/n4,
+ * i.e. those with a numeric score) — the peer set ranking movement actually competes
+ * against. Excludes the given athlete and anyone without a numeric score.
+ */
+export function worldRankingPoolPeerScores(
+  data: RoadToBirmingham,
+  excludeUrlSlug: string,
+): number[] {
+  return data.qualifications
+    .filter(
+      (q) =>
+        q.competitor.urlSlug !== excludeUrlSlug &&
+        (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') &&
+        q.qualificationDetails.score != null,
+    )
+    .map((q) => q.qualificationDetails.score as number);
 }

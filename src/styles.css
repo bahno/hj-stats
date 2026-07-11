@@ -939,6 +939,43 @@ h2 {
   border-radius: 10px;
 }
 
+.simulate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.source-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.source-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.source-switch button.active {
+  background: rgb(var(--accent-rgb) / 0.18);
+  color: var(--text);
+}
+
+.simulate .stat .road-badge {
+  margin-top: 6px;
+}
+
 .simulate .fields {
   margin-top: 12px;
 }

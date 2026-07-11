@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectedPlace, recomputeRanking } from './simulate';
+import { projectedPlace, qualifyingPosition, recomputeRanking, withinWorldRankingQuota } from './simulate';
 
 // Mahuchikh's five counting scores (avg 1367).
 const BASE = [1400, 1389, 1369, 1349, 1330];
@@ -33,5 +33,19 @@ describe('projectedPlace', () => {
   it('ranks by higher score', () => {
     expect(projectedPlace([1400, 1300, 1200], 1350)).toBe(2);
     expect(projectedPlace([1400, 1300, 1200], 1500)).toBe(1);
+  });
+});
+
+describe('qualifyingPosition', () => {
+  it('offsets the pool rank by the fixed non-ranking slots', () => {
+    // 13 entry-standard spots ahead of the pool; 1st in the pool -> position 14.
+    expect(qualifyingPosition([1150, 1100, 1050], 1196, 13)).toBe(14);
+  });
+});
+
+describe('withinWorldRankingQuota', () => {
+  it('is true when the pool rank is within the available slots', () => {
+    expect(withinWorldRankingQuota([1150, 1100, 1050], 1120, 2)).toBe(true); // pool rank 2
+    expect(withinWorldRankingQuota([1150, 1100, 1050], 1000, 2)).toBe(false); // pool rank 4
   });
 });
