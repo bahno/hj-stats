@@ -46,3 +46,24 @@ export function recomputeRanking(base: number[], simScore: number): Recompute {
 export function projectedPlace(peerScores: number[], score: number): number {
   return 1 + peerScores.filter((s) => s > score).length;
 }
+
+/**
+ * Overall qualifying position when a fixed number of slots (`nonRankingSlots`, e.g.
+ * entry-standard qualifiers) sit ahead of a ranking pool: the pool rank plus that offset.
+ */
+export function qualifyingPosition(
+  peerScores: number[],
+  score: number,
+  nonRankingSlots: number,
+): number {
+  return nonRankingSlots + projectedPlace(peerScores, score);
+}
+
+/** Whether `score`'s pool rank falls within the ranking pool's available slots. */
+export function withinWorldRankingQuota(
+  peerScores: number[],
+  score: number,
+  worldRankingSlots: number,
+): boolean {
+  return projectedPlace(peerScores, score) <= worldRankingSlots;
+}

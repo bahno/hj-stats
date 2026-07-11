@@ -6,7 +6,7 @@
  */
 const EA_TRPC = 'https://api.european-athletics.com/trpc';
 
-async function trpc<T>(proc: string, input: unknown): Promise<T> {
+export async function trpc<T>(proc: string, input: unknown): Promise<T> {
   const query = encodeURIComponent(JSON.stringify({ json: input }));
   const res = await fetch(`${EA_TRPC}/${proc}?input=${query}`);
   if (!res.ok) throw new Error(`${proc}: HTTP ${res.status}`);

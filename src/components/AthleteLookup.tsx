@@ -7,9 +7,16 @@ import {
   fetchHighJumpRanking,
   fetchRankingCalculation,
 } from '../data/rankingApi';
+import {
+  fetchRoadToBirmingham,
+  findQualification,
+  worldRankingPoolPeerScores,
+  type QualificationEntry,
+  type RoadToBirmingham as RoadToBirminghamData,
+} from '../data/birminghamApi';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
-import { SimulateResult } from './SimulateResult';
+import { SimulateResult, type RoadSimData, type Source } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
@@ -90,6 +97,10 @@ interface Found {
   calc: RankingCalculation;
   peers: RankingRow[];
   gender: Gender;
+  /** null when the fetch failed or hasn't been resolved — rendered as "not tracked". */
+  road: RoadToBirminghamData | null;
+  /** null unless the athlete is in the Birmingham world-rankings pool and the fetch succeeded. */
+  roadCalc: RankingCalculation | null;
 }
 
 export function AthleteLookup() {
@@ -111,6 +122,7 @@ export function AthleteLookup() {
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
   const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());
+  const [roadCache] = useState(() => new Map<Gender, RoadToBirminghamData>());
 
   async function ranking(g: Gender) {
     const hit = cache.get(g);
@@ -120,16 +132,42 @@ export function AthleteLookup() {
     return data;
   }
 
+  // Road to Birmingham is undocumented and can fail/change shape independently of the
+  // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
+  async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
+    const hit = roadCache.get(g);
+    if (hit) return hit;
+    try {
+      const data = await fetchRoadToBirmingham(g);
+      roadCache.set(g, data);
+      return data;
+    } catch (e) {
+      console.warn('Road to Birmingham fetch failed', e);
+      return null;
+    }
+  }
+
   async function select(row: RankingRow, g: Gender) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
     try {
-      const [calc, list] = await Promise.all([
+      const [calc, list, road] = await Promise.all([
         fetchRankingCalculation(row.id),
         ranking(g),
+        roadToBirmingham(g),
       ]);
-      setFound({ row, calc, peers: list.rows, gender: g });
+      const roadCalculationId = road
+        ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
+        : undefined;
+      const roadCalc =
+        roadCalculationId != null
+          ? await fetchRankingCalculation(roadCalculationId).catch((e) => {
+              console.warn('Road to Birmingham calculation fetch failed', e);
+              return null;
+            })
+          : null;
+      setFound({ row, calc, peers: list.rows, gender: g, road, roadCalc });
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -270,12 +308,29 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
 }
 
 function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => void }) {
-  const { row, calc, peers, gender } = found;
+  const { row, calc, peers, gender, road, roadCalc } = found;
+  const [source, setSource] = useState<Source>('world');
   const results = calc.results;
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
   const placeDelta = delta(row.place, row.previousPlace, true);
   const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
+
+  const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
+  const displayedResults = source === 'birmingham' && roadCalc ? roadCalc.results : results;
+  const roadSim: RoadSimData | undefined =
+    road && roadCalc
+      ? {
+          baseScores: roadCalc.results.map((r) => r.performanceScore),
+          currentScore: roadCalc.averagePerformanceScore,
+          peerScores: worldRankingPoolPeerScores(road, row.athleteUrlSlug),
+          nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
+          worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
+          entryNumber: road.entryNumber,
+          firstRankingDay: road.firstRankingDay,
+          lastRankingDay: road.lastRankingDay,
+        }
+      : undefined;
 
   return (
     <div className="lookup-result">
@@ -310,9 +365,16 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         </div>
       </div>
 
+      <RoadToBirmingham entry={roadEntry} entryNumber={road?.entryNumber} />
+
       <div className="lookup-comps">
+        <div className="comps-label">
+          {source === 'birmingham' && roadCalc
+            ? 'Counting competitions — Road to Birmingham'
+            : 'Counting competitions'}
+        </div>
         <ul className="comp-list">
-          {results.map((r, i) => (
+          {displayedResults.map((r, i) => (
             <li className="comp-item" key={`${r.date}-${i}`}>
               <div className="comp-main">
                 <div className="comp-name">{r.competition}</div>
@@ -337,8 +399,55 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
         baseScores={baseScores}
         currentScore={row.rankingScore}
         currentPlace={row.place}
+        currentWorldPlace={row.worldPlace}
         peerScores={peerScores}
+        road={roadSim}
+        source={source}
+        onSourceChange={setSource}
       />
+    </div>
+  );
+}
+
+/** Human-readable qualification detail for a Road to Birmingham entry. */
+function qualificationDetail(entry: QualificationEntry): string {
+  const { label, result, venue, date, place, score } = entry.qualificationDetails;
+  if (label) return label;
+  if (result) return [`${result} m`, venue, date].filter(Boolean).join(' · ');
+  if (score != null) return `World ranking #${place} · ${score} pts`;
+  return entry.qualifiedBy;
+}
+
+function RoadToBirmingham({
+  entry,
+  entryNumber,
+}: {
+  entry: QualificationEntry | undefined;
+  entryNumber: number | undefined;
+}) {
+  if (!entry) {
+    return (
+      <div className="road-to-birmingham">
+        <div className="road-label">Road to Birmingham</div>
+        <div className="muted">Not currently on the Road to Birmingham list.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="road-to-birmingham">
+      <div className="road-label">Road to Birmingham</div>
+      <div className="road-row">
+        <span className={`road-badge ${entry.qualified ? 'qualified' : 'bubble'}`}>
+          {entry.qualified ? 'Qualified' : 'Not yet qualifying'}
+        </span>
+        <span className="road-detail">{qualificationDetail(entry)}</span>
+      </div>
+      {entry.qualified && entry.qualificationPosition != null && (
+        <div className="muted road-position">
+          #{entry.qualificationPosition} of {entryNumber} qualifying spots
+        </div>
+      )}
     </div>
   );
 }
