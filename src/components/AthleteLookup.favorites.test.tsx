@@ -30,6 +30,8 @@ vi.mock('../data/birminghamApi', async (orig) => ({
     entryStandard: '2.27',
     rankDate: '',
     numberOfCompetitorsFilledUpByWorldRankings: 17,
+    firstRankingDay: '27 JUL 2025',
+    lastRankingDay: '26 JUL 2026',
     qualifications: [],
   })),
 }));

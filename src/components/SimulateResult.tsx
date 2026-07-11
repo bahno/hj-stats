@@ -31,6 +31,10 @@ export interface RoadSimData {
   nonRankingSlots: number; // spots filled by entry standard/other fixed routes
   worldRankingSlots: number; // spots filled by the ranking pool
   entryNumber: number; // total qualifying spots
+  /** The fixed Birmingham qualifying window — can disagree with the athlete's live
+   *  rolling ranking window, so the two "5 counting results" sets may differ. */
+  firstRankingDay: string;
+  lastRankingDay: string;
 }
 
 export function SimulateResult({
@@ -120,6 +124,13 @@ export function SimulateResult({
           </div>
         )}
       </div>
+      {useBirmingham && (
+        <p className="road-window-note">
+          Scoped to the Birmingham qualifying window ({road!.firstRankingDay} –{' '}
+          {road!.lastRankingDay}) — this can count different competitions than the live
+          World/European ranking above.
+        </p>
+      )}
       <div className="fields">
         <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} rows={3} />
         <CategorySelect categories={categories} value={category} onChange={setCategory} />

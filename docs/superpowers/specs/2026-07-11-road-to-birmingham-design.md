@@ -147,3 +147,13 @@ Extends the Simulate panel with a switch between two bases for the projection:
 - Fetching the Birmingham-scoped calculation is decoupled the same way as the Road to
   Birmingham fetch itself: failure leaves `roadCalc` `null` and the switch simply doesn't
   appear, rather than breaking the result.
+
+**Follow-up fix (same day):** users noticed the World-ranking and Road to Birmingham
+"5 counting results" can list genuinely different competitions for the same athlete —
+confirmed live (Thomas Carmoy, BEL) this is expected, not a bug: the Road to Birmingham
+pool uses a fixed qualifying window (`firstRankingDay`/`lastRankingDay`, e.g. 27 JUL 2025
+– 26 JUL 2026 for the current edition) that's narrower than the athlete's live rolling
+World/European ranking window, so a result just outside one window but inside the other
+gets swapped for the next-best counting result. Added `firstRankingDay`/`lastRankingDay`
+to `RoadToBirmingham` and surfaced them as a caption under the switch when Birmingham
+mode is active, so this reads as intentional rather than a data mismatch.

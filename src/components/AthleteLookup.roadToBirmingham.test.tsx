@@ -55,6 +55,8 @@ function roadData(qualifications: RoadToBirmingham['qualifications']): RoadToBir
     entryStandard: '2.27',
     rankDate: '26 JUL 2026',
     numberOfCompetitorsFilledUpByWorldRankings: 17,
+    firstRankingDay: '27 JUL 2025',
+    lastRankingDay: '26 JUL 2026',
     qualifications,
   };
 }
@@ -185,11 +187,15 @@ test('shows a simulation source switch for athletes in the world-rankings pool, 
 
   expect(await screen.findByText('World ranking')).toBeInTheDocument();
   expect(screen.getByText('New European')).toBeInTheDocument();
+  expect(screen.queryByText(/Scoped to the Birmingham qualifying window/)).toBeNull();
 
   fireEvent.click(screen.getByText('Road to Birmingham', { selector: 'button' }));
 
   expect(await screen.findByText('New Birmingham position')).toBeInTheDocument();
   expect(screen.queryByText('New European')).toBeNull();
+  expect(
+    screen.getByText(/Scoped to the Birmingham qualifying window \(27 JUL 2025 – 26 JUL 2026\)/),
+  ).toBeInTheDocument();
 });
 
 test('does not show the switch when the athlete has no world-rankings calculation (e.g. qualified by entry standard)', async () => {

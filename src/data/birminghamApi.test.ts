@@ -26,6 +26,8 @@ const data: RoadToBirmingham = {
   entryStandard: '2.27',
   rankDate: '26 JUL 2026',
   numberOfCompetitorsFilledUpByWorldRankings: 17,
+  firstRankingDay: '27 JUL 2025',
+  lastRankingDay: '26 JUL 2026',
   qualifications: [entry('italy/gianmarco-tamberi-14375750'), entry('ukraine/oleh-doroshchuk-14803002')],
 };
 

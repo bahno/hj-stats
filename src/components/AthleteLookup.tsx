@@ -307,6 +307,8 @@ function Result({ found, onNeedSignIn }: { found: Found; onNeedSignIn: () => voi
           nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
           worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
           entryNumber: road.entryNumber,
+          firstRankingDay: road.firstRankingDay,
+          lastRankingDay: road.lastRankingDay,
         }
       : undefined;
 

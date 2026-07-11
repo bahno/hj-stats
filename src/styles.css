@@ -980,6 +980,14 @@ h2 {
   margin-top: 12px;
 }
 
+.road-window-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  font-style: italic;
+}
+
 .sim-note {
   margin: 0 0 12px;
   color: var(--muted);

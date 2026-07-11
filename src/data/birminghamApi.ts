@@ -46,6 +46,11 @@ export interface RoadToBirmingham {
    *  than entry standard/other fixed routes — the size of the pool that ranking movement
    *  actually competes over. */
   numberOfCompetitorsFilledUpByWorldRankings: number;
+  /** The fixed qualifying window this ranking pool's results are drawn from — narrower
+   *  than (and can disagree with) the athlete's live rolling World/European ranking
+   *  window, which is why the two can count different competitions. */
+  firstRankingDay: string;
+  lastRankingDay: string;
   qualifications: QualificationEntry[];
 }
 
@@ -54,6 +59,8 @@ interface QualifyingSystemResponse {
   entryStandard: string;
   rankDate: string;
   numberOfCompetitorsFilledUpByWorldRankings: number;
+  firstRankingDay: string;
+  lastRankingDay: string;
   qualifications: QualificationEntry[];
 }
 
@@ -68,6 +75,8 @@ export async function fetchRoadToBirmingham(gender: Gender): Promise<RoadToBirmi
     entryStandard: data.entryStandard,
     rankDate: data.rankDate,
     numberOfCompetitorsFilledUpByWorldRankings: data.numberOfCompetitorsFilledUpByWorldRankings,
+    firstRankingDay: data.firstRankingDay,
+    lastRankingDay: data.lastRankingDay,
     qualifications: data.qualifications,
   };
 }
