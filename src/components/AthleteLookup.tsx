@@ -163,6 +163,17 @@ export function AthleteLookup() {
     await runLookup(query, gender);
   }
 
+  // Rankings are per-gender, so switching gender clears the current athlete
+  // and results — otherwise a favorite's name lingers under the wrong gender.
+  function changeGender(g: Gender) {
+    setGender(g);
+    setQuery('');
+    setFound(null);
+    setCandidates([]);
+    setStatus('idle');
+    setMessage('');
+  }
+
   return (
     <section className={`card lookup ${gender}`}>
       {user && favorites.length > 0 && (
@@ -187,7 +198,7 @@ export function AthleteLookup() {
         <p className="lookup-msg">Sign in to save favorites.</p>
       )}
       <form className="fields" onSubmit={search}>
-        <GenderToggle value={gender} onChange={setGender} />
+        <GenderToggle value={gender} onChange={changeGender} />
         <label className="field">
           <span>Athlete</span>
           <input

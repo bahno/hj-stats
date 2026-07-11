@@ -74,3 +74,35 @@ test('clicking a favorite chip re-runs the lookup and renders the result', async
   );
   expect(fetchRankingCalculation).toHaveBeenCalledWith(42);
 });
+
+test('switching gender clears the selected favorite name and result', async () => {
+  const row: RankingRow = {
+    id: 42,
+    place: 1,
+    worldPlace: 3,
+    athlete: 'Gianmarco Tamberi',
+    athleteUrlSlug: 'tamberi',
+    nationality: 'ITA',
+    rankingScore: 1400,
+    previousPlace: 2,
+    previousRankingScore: 1380,
+  };
+  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
+  vi.mocked(fetchRankingCalculation).mockResolvedValue({
+    averagePerformanceScore: 1400,
+    disciplineList: ['High Jump'],
+    results: [],
+  });
+
+  render(<AthleteLookup />);
+  fireEvent.click(await screen.findByText('★ Gianmarco Tamberi'));
+  await screen.findByText('Gianmarco Tamberi', { selector: '.lookup-name' });
+  expect((screen.getByPlaceholderText('e.g. Tamberi') as HTMLInputElement).value).toBe(
+    'Gianmarco Tamberi',
+  );
+
+  fireEvent.click(screen.getByRole('switch', { name: 'Gender' }));
+
+  expect((screen.getByPlaceholderText('e.g. Tamberi') as HTMLInputElement).value).toBe('');
+  expect(screen.queryByText('Gianmarco Tamberi', { selector: '.lookup-name' })).toBeNull();
+});
