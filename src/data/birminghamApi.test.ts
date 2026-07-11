@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import {
+  countryPreOccupancy,
   findQualification,
   worldRankingPoolPeers,
   type QualificationEntry,
@@ -65,4 +66,36 @@ test('worldRankingPoolPeers includes only q4/n4 entries with a score, excluding 
     { score: 1200, country: 'FRA' },
     { score: 1050, country: 'GER' },
   ]);
+});
+
+test('countryPreOccupancy counts fixed-route qualifiers per country, excluding the pool and the champion exemption', () => {
+  const pool: RoadToBirmingham = {
+    ...data,
+    qualifications: [
+      // Two GBR entry-standard qualifiers — count toward GBR's cap.
+      entry('a', { competitor: { athleteId: 2, name: 'A', country: 'GBR', urlSlug: 'a' } }),
+      entry('b', { competitor: { athleteId: 3, name: 'B', country: 'GBR', urlSlug: 'b' } }),
+      // Defending champion (q7) — exempt from the cap.
+      entry('c', {
+        qualificationTypeId: 'q7',
+        qualified: true,
+        competitor: { athleteId: 4, name: 'C', country: 'ITA', urlSlug: 'c' },
+        qualificationDetails: { label: 'Defending European Champion' },
+      }),
+      // Pool entries (q4/n4) — not "pre-occupancy", they're the pool itself.
+      entry('d', {
+        qualificationTypeId: 'q4',
+        qualified: true,
+        competitor: { athleteId: 5, name: 'D', country: 'FRA', urlSlug: 'd' },
+        qualificationDetails: { score: 1200 },
+      }),
+      entry('e', {
+        qualificationTypeId: 'n4',
+        qualified: false,
+        competitor: { athleteId: 6, name: 'E', country: 'FRA', urlSlug: 'e' },
+        qualificationDetails: { score: 1000 },
+      }),
+    ],
+  };
+  expect(countryPreOccupancy(pool)).toEqual({ GBR: 2 });
 });

@@ -5,6 +5,7 @@
  */
 import { trpc, type Gender } from './rankingApi';
 import type { CountryScore } from './types';
+import { MAX_PER_COUNTRY } from '../engine/simulate';
 
 const BIRMINGHAM_COMPETITION_ID = 7192415;
 
@@ -108,4 +109,66 @@ export function worldRankingPoolPeers(
         q.qualificationDetails.score != null,
     )
     .map((q) => ({ score: q.qualificationDetails.score as number, country: q.competitor.country }));
+}
+
+/**
+ * Per-country count of qualifiers already locked in through a fixed route (entry
+ * standard, etc.) — every `qualificationTypeId` other than the ranking pool itself
+ * (`q4`/`n4`) and the defending-champion exemption (`q7`). These already consume a
+ * country's share of the 3-per-country cap before the ranking pool is even considered:
+ * verified live against both the 2026 men's (76 pool entries) and women's (68 pool
+ * entries) Birmingham High Jump qualifying systems — seeding the pool-quota walk with
+ * these counts reproduces every one of the API's own `qualified`/`qualificationPosition`
+ * values exactly. Without this, a country with existing entry-standard qualifiers looks
+ * like it has more room in the pool than it actually does.
+ */
+export function countryPreOccupancy(data: RoadToBirmingham): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const q of data.qualifications) {
+    if (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4' || q.qualificationTypeId === 'q7') {
+      continue;
+    }
+    counts[q.competitor.country] = (counts[q.competitor.country] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * An athlete's position in the country-quota-capped qualifying order, computed from
+ * their ACTUAL recorded score.
+ *
+ * Unlike the simulator (`engine/simulate.ts`'s `qualifyingPosition`, used for a
+ * *hypothetical* new result), this walks the pool in the API's own returned order rather
+ * than re-sorting by score. The API already returns the pool sorted best-to-worst with
+ * ties between real athletes resolved somehow (verified live: two Birmingham men's HJ
+ * candidates tied at the same score, e.g. score 1078, appear in a fixed, non-alphabetical
+ * order) — re-sorting ourselves would have to guess that tiebreak, and guessing wrong
+ * shifts a real athlete's position by one. Trusting the given order sidesteps the guess
+ * entirely; the per-country cap (seeded from `countryPreOccupancy`) is still applied on
+ * top of it. Returns `null` if the athlete isn't in the pool, or is blocked by the quota.
+ */
+export function qualifyingPoolPosition(data: RoadToBirmingham, urlSlug: string): number | null {
+  const pool = data.qualifications.filter(
+    (q) =>
+      (q.qualificationTypeId === 'q4' || q.qualificationTypeId === 'n4') &&
+      q.qualificationDetails.score != null,
+  );
+  const targetIndex = pool.findIndex((q) => q.competitor.urlSlug === urlSlug);
+  if (targetIndex === -1) return null;
+
+  const nonRankingSlots = data.entryNumber - data.numberOfCompetitorsFilledUpByWorldRankings;
+  const counts = new Map<string, number>(Object.entries(countryPreOccupancy(data)));
+  let rank = 0;
+  for (let i = 0; i < pool.length; i++) {
+    const country = pool[i].competitor.country;
+    const used = counts.get(country) ?? 0;
+    if (used >= MAX_PER_COUNTRY) {
+      if (i === targetIndex) return null;
+      continue;
+    }
+    counts.set(country, used + 1);
+    rank++;
+    if (i === targetIndex) return nonRankingSlots + rank;
+  }
+  return null;
 }

@@ -8,8 +8,10 @@ import {
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import {
+  countryPreOccupancy,
   fetchRoadToBirmingham,
   findQualification,
+  qualifyingPoolPosition,
   worldRankingPoolPeers,
   type QualificationEntry,
   type RoadToBirmingham as RoadToBirminghamData,
@@ -306,18 +308,34 @@ function delta(current: number, previous: number | null, betterIsLower: boolean)
   return `${improved ? '▲' : '▼'} ${Math.abs(d)}`;
 }
 
-/** The Road to # stat card's value/badge for the three possible states. */
+/**
+ * The Road to # stat card's value/badge for the three possible states. When qualified,
+ * the API's own `qualificationPosition` is authoritative. When not yet qualified, the API
+ * gives no position at all — `qualificationDetails.place` is the athlete's raw World
+ * Ranking place (unrelated to the qualifying pool), not their standing in the qualifying
+ * order, so `qualifyingPoolPosition` computes it from the pool's own ordering instead.
+ */
 function roadToStat(
   road: RoadToBirminghamData | null,
   entry: QualificationEntry | undefined,
-): { value: string; label: string; pill: 'qualified' | 'bubble' | null } {
+): { value: string; label: string; pill: 'qualified' | 'next' | null } {
   if (!road || !entry) return { value: '—', label: 'Not tracked', pill: null };
   if (entry.qualified) {
     const pos = entry.qualificationPosition;
     return { value: pos != null ? `#${pos}` : '—', label: 'Qualified', pill: 'qualified' };
   }
-  const pos = entry.qualificationDetails.place;
-  return { value: pos != null ? `#${pos}` : '—', label: 'Bubble', pill: 'bubble' };
+  const pos = qualifyingPoolPosition(road, entry.competitor.urlSlug);
+  return { value: pos != null ? `#${pos}` : '—', label: 'Next Best', pill: 'next' };
+}
+
+/** An athlete's current qualifying-pool position, whichever state they're in — the API's
+ *  own value when qualified, or our computed one otherwise. `null` when untracked. */
+function currentRoadPosition(
+  road: RoadToBirminghamData | null,
+  entry: QualificationEntry | undefined,
+): number | null {
+  if (!road || !entry) return null;
+  return entry.qualified ? entry.qualificationPosition : qualifyingPoolPosition(road, entry.competitor.urlSlug);
 }
 
 function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
@@ -338,6 +356,8 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
           currentScore: roadCalc.averagePerformanceScore,
           peers: worldRankingPoolPeers(road, row.athleteUrlSlug),
           country: row.nationality,
+          countryPreOccupancy: countryPreOccupancy(road),
+          currentPosition: currentRoadPosition(road, roadEntry),
           nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
           worldRankingSlots: road.numberOfCompetitorsFilledUpByWorldRankings,
           entryNumber: road.entryNumber,

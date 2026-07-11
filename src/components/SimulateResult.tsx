@@ -28,6 +28,16 @@ export interface RoadSimData {
   currentScore: number; // their Birmingham-scoped average score
   peers: CountryScore[]; // world-rankings-pool peers' scores + countries (self excluded)
   country: string; // the athlete's own country, for the per-country quota
+  /** Per-country counts of qualifiers already locked in outside the pool (entry standard,
+   *  etc.) — these consume a share of the 3-per-country cap too, see
+   *  birminghamApi.countryPreOccupancy. */
+  countryPreOccupancy: Record<string, number>;
+  /** The athlete's actual current position (API value when qualified, else computed from
+   *  the pool's own order — see birminghamApi.qualifyingPoolPosition), or null if
+   *  untracked. Used as the baseline for the delta against a simulated new position;
+   *  computed from the real recorded score, so ties against real peers resolve the same
+   *  way the official pool order does, unlike the simulated position below. */
+  currentPosition: number | null;
   nonRankingSlots: number; // spots filled by entry standard/other fixed routes
   worldRankingSlots: number; // spots filled by the ranking pool
   entryNumber: number; // total qualifying spots
@@ -74,26 +84,27 @@ export function SimulateResult({
 
   const standing = useMemo(() => {
     if (rankingType === 'road' && road) {
-      const newPosition = qualifyingPosition(road.peers, sim.newScore, road.country, road.nonRankingSlots);
-      const currentPosition = qualifyingPosition(
+      const newPosition = qualifyingPosition(
         road.peers,
-        effCurrentScore,
+        sim.newScore,
         road.country,
         road.nonRankingSlots,
+        road.countryPreOccupancy,
       );
       const qualifies = withinWorldRankingQuota(
         road.peers,
         sim.newScore,
         road.country,
         road.worldRankingSlots,
+        road.countryPreOccupancy,
       );
       return {
         label: 'Position',
         value: newPosition != null ? `#${newPosition}` : '—',
-        note: newPosition == null ? 'Blocked by country quota' : qualifies ? 'Qualifying' : 'Not qualifying',
+        note: newPosition == null ? 'Blocked by country quota' : qualifies ? 'Qualifying' : 'Next Best',
         delta:
-          newPosition != null && currentPosition != null
-            ? delta(newPosition, currentPosition, true)
+          newPosition != null && road.currentPosition != null
+            ? delta(newPosition, road.currentPosition, true)
             : { text: '—', tone: 'flat' as Tone },
       };
     }
@@ -108,7 +119,7 @@ export function SimulateResult({
       note: null as string | null,
       delta: delta(newPlace, currentPlace, true),
     };
-  }, [rankingType, road, sim.newScore, effCurrentScore, peerScores, currentPlace]);
+  }, [rankingType, road, sim.newScore, peerScores, currentPlace]);
 
   return (
     <div className="simulate">
@@ -143,7 +154,7 @@ export function SimulateResult({
               <div className="stat-value">{standing.value}</div>
               <div className={`stat-delta ${standing.delta.tone}`}>{standing.delta.text}</div>
               {standing.note && (
-                <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'bubble'}`}>
+                <div className={`road-badge ${standing.note === 'Qualifying' ? 'qualified' : 'next'}`}>
                   {standing.note}
                 </div>
               )}

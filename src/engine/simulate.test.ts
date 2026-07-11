@@ -73,6 +73,17 @@ describe('qualifyingPoolRank', () => {
     const pool = peers([[1150, 'FRA']]);
     expect(qualifyingPoolRank(pool, 1150, 'GER')).toBe(1);
   });
+
+  it('counts pre-occupancy (entry-standard qualifiers) against the same cap', () => {
+    // GBR already has 2 entry-standard qualifiers ahead of the pool. Only 1 pool slot
+    // is left for GBR before the cap of 3 is hit.
+    const pool = peers([
+      [1119, 'GBR'], // takes GBR's last available slot
+      [1109, 'GBR'], // blocked: GBR is already at the cap (2 pre-occupied + 1 pool)
+    ]);
+    expect(qualifyingPoolRank(pool, 1119, 'GBR', { GBR: 2 })).toBe(1);
+    expect(qualifyingPoolRank(pool, 1074, 'GBR', { GBR: 2 })).toBeNull();
+  });
 });
 
 describe('qualifyingPosition', () => {
@@ -94,6 +105,18 @@ describe('qualifyingPosition', () => {
     ]);
     expect(qualifyingPosition(pool, 1150, 'ITA', 13)).toBeNull();
   });
+
+  it('accounts for pre-occupied country slots from outside the pool', () => {
+    // GBR already has 2 entry-standard qualifiers ahead of the pool (pre-occupancy 2).
+    // A pool peer (1119) uses GBR's one remaining slot before an unrelated FRA athlete
+    // is considered, so the FRA athlete's position is offset by that GBR slot too.
+    const pool = peers([[1119, 'GBR']]);
+    expect(qualifyingPosition(pool, 1109, 'FRA', 13, { GBR: 2 })).toBe(15);
+    // A second GBR pool athlete below the first is blocked outright: GBR is already at
+    // the cap (2 pre-occupied + the 1119 peer), so no position exists for them at all —
+    // ignoring the pre-occupancy would have wrongly reported a real position (rank 2).
+    expect(qualifyingPosition(pool, 1109, 'GBR', 13, { GBR: 2 })).toBeNull();
+  });
 });
 
 describe('withinWorldRankingQuota', () => {
@@ -114,5 +137,10 @@ describe('withinWorldRankingQuota', () => {
       [1200, 'ITA'],
     ]);
     expect(withinWorldRankingQuota(pool, 1150, 'ITA', 10)).toBe(false);
+  });
+
+  it('is false when pre-occupied country slots leave no room, even with slots remaining', () => {
+    const pool = peers([[1119, 'GBR']]);
+    expect(withinWorldRankingQuota(pool, 1109, 'GBR', 20, { GBR: 2 })).toBe(false);
   });
 });

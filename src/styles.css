@@ -370,7 +370,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
-  width: 100%;
+  width: 260px;
   max-width: 300px;
   height: 34px;
   padding: 2px;
@@ -877,7 +877,7 @@ h2 {
   border: 1px solid rgb(63 185 80 / 0.4);
 }
 
-.road-badge.bubble {
+.road-badge.next {
   color: var(--muted);
   background: transparent;
   border: 1px solid var(--line);

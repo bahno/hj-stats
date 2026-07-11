@@ -12,8 +12,7 @@ export function RankingTypeToggle({
   label?: string;
 }) {
   return (
-    <div className="field">
-      <span>{label}</span>
+    <div>
       <button
         type="button"
         role="switch"

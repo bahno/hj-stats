@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { expect, test, vi, beforeEach } from 'vitest';
 import type { RankingRow, RankingCalculation } from '../data/rankingApi';
 import type { RoadToBirmingham } from '../data/birminghamApi';
@@ -107,7 +107,7 @@ test('shows the Road To stat as Qualified with the official position', async () 
   expect(screen.getByText('Qualified', { selector: '.road-badge' })).toBeInTheDocument();
 });
 
-test('shows the Road To stat as Bubble with the world-rankings pool place', async () => {
+test('shows the Road To stat as Next Best with a computed qualifying-pool position (not the raw World Ranking place)', async () => {
   vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
     roadData([
       {
@@ -124,6 +124,9 @@ test('shows the Road To stat as Bubble with the world-rankings pool place', asyn
         },
         withdrawn: false,
         rejected: false,
+        // place: 45 is the athlete's raw World Ranking place — irrelevant to the
+        // qualifying pool. With no other pool peers, their pool rank is 1st, so their
+        // qualifying-pool position is nonRankingSlots(13) + 1 = #14, not #45.
         qualificationDetails: { place: 45, score: 1105 },
       },
     ]),
@@ -131,8 +134,79 @@ test('shows the Road To stat as Bubble with the world-rankings pool place', asyn
 
   await openResult();
 
-  expect(await screen.findByText('#45')).toBeInTheDocument();
-  expect(screen.getByText('Bubble', { selector: '.road-badge' })).toBeInTheDocument();
+  expect(await screen.findByText('#14')).toBeInTheDocument();
+  expect(screen.queryByText('#45')).toBeNull();
+  expect(screen.getByText('Next Best', { selector: '.road-badge' })).toBeInTheDocument();
+});
+
+test('accounts for pre-occupied country slots (entry-standard qualifiers) when computing the Next Best position', async () => {
+  vi.mocked(fetchRoadToBirmingham).mockResolvedValue(
+    roadData([
+      // GBR already has 2 entry-standard qualifiers ahead of the pool.
+      {
+        qualifiedBy: 'Qualified by Entry Standard',
+        qualificationTypeId: 'q1',
+        qualified: true,
+        qualificationPosition: 1,
+        countryPosition: 1,
+        competitor: { athleteId: 10, name: 'GBR One', country: 'GBR', urlSlug: 'gbr/one-10' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { result: '2.30' },
+      },
+      {
+        qualifiedBy: 'Qualified by Entry Standard',
+        qualificationTypeId: 'q1',
+        qualified: true,
+        qualificationPosition: 2,
+        countryPosition: 2,
+        competitor: { athleteId: 11, name: 'GBR Two', country: 'GBR', urlSlug: 'gbr/two-11' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { result: '2.29' },
+      },
+      // A GBR pool peer uses GBR's one remaining cap slot.
+      {
+        qualifiedBy: 'In World Rankings quota',
+        qualificationTypeId: 'q4',
+        qualified: true,
+        qualificationPosition: 3,
+        countryPosition: 3,
+        competitor: { athleteId: 12, name: 'GBR Three', country: 'GBR', urlSlug: 'gbr/three-12' },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { place: 10, score: 1119 },
+      },
+      // Our looked-up athlete: another GBR pool member, blocked outright by the now-full cap.
+      {
+        qualifiedBy: 'Next best by World Rankings',
+        qualificationTypeId: 'n4',
+        qualified: false,
+        qualificationPosition: null,
+        countryPosition: 4,
+        competitor: {
+          athleteId: 14375750,
+          name: row.athlete,
+          country: 'GBR',
+          urlSlug: row.athleteUrlSlug,
+        },
+        withdrawn: false,
+        rejected: false,
+        qualificationDetails: { place: 33, score: 1109 },
+      },
+    ]),
+  );
+
+  await openResult();
+
+  const roadCard = (await screen.findByText('Road To', { selector: '.stat-label' })).closest(
+    '.stat',
+  ) as HTMLElement;
+  // Blocked outright: 2 entry-standard qualifiers + 1 pool qualifier already fill GBR's
+  // 3-per-country cap, so there's no numeric position at all — ignoring the entry-standard
+  // qualifiers would have wrongly shown a real (too-optimistic) position.
+  expect(within(roadCard).getByText('—')).toBeInTheDocument();
+  expect(within(roadCard).getByText('Next Best')).toBeInTheDocument();
 });
 
 test('shows the Road To stat as Not tracked when the athlete has no qualification entry', async () => {

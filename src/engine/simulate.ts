@@ -52,14 +52,18 @@ export const MAX_PER_COUNTRY = 3;
 
 /**
  * 1-based rank of `score` within the ranking pool once each country is capped at
- * `maxPerCountry` counted athletes: walking the pool best-to-worst, any athlete beyond
- * their country's cap is skipped entirely — they consume no slot and don't push anyone
- * else down. Returns `null` if `country` already has `maxPerCountry` peers ranked
- * strictly ahead of `score` (blocked by the quota, regardless of remaining pool slots).
+ * `maxPerCountry` counted athletes total: walking the pool best-to-worst, any athlete
+ * beyond their country's cap is skipped entirely — they consume no slot and don't push
+ * anyone else down. `countryPreOccupancy` seeds each country's count with qualifiers
+ * already locked in through a fixed, non-pool route (e.g. entry standard) — those count
+ * against the cap too, they just aren't part of `peers` (see
+ * `birminghamApi.countryPreOccupancy`). Returns `null` if `country` is already at (or
+ * over) the cap once its pre-occupancy is included (blocked by the quota, regardless of
+ * how many pool slots remain).
  *
- * Previous/defending champions qualify via a separate fixed route and are expected to
- * already be excluded from `peers` — they never occupy one of the `maxPerCountry` slots,
- * which is why a country can field more than `maxPerCountry` athletes overall.
+ * The defending-champion route is the one exemption — it doesn't consume a cap slot,
+ * which is why a country can field more than `maxPerCountry` athletes overall. Champions
+ * are expected to already be excluded from both `peers` and `countryPreOccupancy`.
  *
  * Ties are resolved in the simulated athlete's favor, matching `projectedPlace`'s
  * convention that only strictly-greater peer scores displace them.
@@ -68,11 +72,12 @@ export function qualifyingPoolRank(
   peers: CountryScore[],
   score: number,
   country: string,
+  countryPreOccupancy: Record<string, number> = {},
   maxPerCountry: number = MAX_PER_COUNTRY,
 ): number | null {
   const self: CountryScore = { score, country };
   const pool = [self, ...peers].sort((a, b) => b.score - a.score);
-  const counts = new Map<string, number>();
+  const counts = new Map<string, number>(Object.entries(countryPreOccupancy));
   let rank = 0;
   for (const entry of pool) {
     const used = counts.get(entry.country) ?? 0;
@@ -94,9 +99,10 @@ export function qualifyingPosition(
   score: number,
   country: string,
   nonRankingSlots: number,
+  countryPreOccupancy: Record<string, number> = {},
   maxPerCountry: number = MAX_PER_COUNTRY,
 ): number | null {
-  const rank = qualifyingPoolRank(peers, score, country, maxPerCountry);
+  const rank = qualifyingPoolRank(peers, score, country, countryPreOccupancy, maxPerCountry);
   return rank == null ? null : nonRankingSlots + rank;
 }
 
@@ -106,8 +112,9 @@ export function withinWorldRankingQuota(
   score: number,
   country: string,
   worldRankingSlots: number,
+  countryPreOccupancy: Record<string, number> = {},
   maxPerCountry: number = MAX_PER_COUNTRY,
 ): boolean {
-  const rank = qualifyingPoolRank(peers, score, country, maxPerCountry);
+  const rank = qualifyingPoolRank(peers, score, country, countryPreOccupancy, maxPerCountry);
   return rank != null && rank <= worldRankingSlots;
 }
