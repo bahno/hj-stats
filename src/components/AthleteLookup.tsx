@@ -96,14 +96,50 @@ function KlaraDiadem() {
 }
 
 interface Found {
-  row: RankingRow;
-  calc: RankingCalculation;
-  peers: RankingRow[];
+  athlete: string;
+  athleteUrlSlug: string;
+  nationality: string;
   gender: Gender;
+  /**
+   * null when the athlete has no World Ranking entry at all — e.g. qualified for
+   * Birmingham purely by hitting the entry standard, without the 5 counting results a
+   * ranking score requires. They're still real Road to Birmingham qualifiers, just not
+   * ones the ranking list can show a Score/European/World place for.
+   */
+  ranked: { row: RankingRow; calc: RankingCalculation; peers: RankingRow[] } | null;
   /** null when the fetch failed or hasn't been resolved — rendered as "not tracked". */
   road: RoadToBirminghamData | null;
   /** null unless the athlete is in the Birmingham world-rankings pool and the fetch succeeded. */
   roadCalc: RankingCalculation | null;
+}
+
+/**
+ * A search match — either a ranked athlete or one found only in the Road to Birmingham
+ * qualification list. Entry-standard qualifiers (and other fixed-route qualifiers) don't
+ * need a World Ranking place at all, so they can be entirely absent from `fetchHighJumpRanking`
+ * while still being a real, qualified-for-Birmingham hit that a search should surface.
+ */
+interface Hit {
+  athlete: string;
+  athleteUrlSlug: string;
+  nationality: string;
+  row: RankingRow | null;
+  /** Set only when `row` is null — shown in the candidate list in place of a EU/World place. */
+  qualifiedBy?: string;
+}
+
+function hitFromRow(row: RankingRow): Hit {
+  return { athlete: row.athlete, athleteUrlSlug: row.athleteUrlSlug, nationality: row.nationality, row };
+}
+
+function hitFromQualification(entry: QualificationEntry): Hit {
+  return {
+    athlete: entry.competitor.name,
+    athleteUrlSlug: entry.competitor.urlSlug,
+    nationality: entry.competitor.country,
+    row: null,
+    qualifiedBy: entry.qualifiedBy,
+  };
 }
 
 export function AthleteLookup() {
@@ -112,7 +148,7 @@ export function AthleteLookup() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
-  const [candidates, setCandidates] = useState<RankingRow[]>([]);
+  const [candidates, setCandidates] = useState<Hit[]>([]);
   const [found, setFound] = useState<Found | null>(null);
   const { user } = useAuth();
   const { favorites } = useFavorites();
@@ -150,27 +186,52 @@ export function AthleteLookup() {
     }
   }
 
-  async function select(row: RankingRow, g: Gender) {
+  async function select(hit: Hit, g: Gender) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
     try {
-      const [calc, list, road] = await Promise.all([
-        fetchRankingCalculation(row.id),
-        ranking(g),
-        roadToBirmingham(g),
-      ]);
-      const roadCalculationId = road
-        ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
-        : undefined;
-      const roadCalc =
-        roadCalculationId != null
-          ? await fetchRankingCalculation(roadCalculationId).catch((e) => {
-              console.warn('Road to Birmingham calculation fetch failed', e);
-              return null;
-            })
-          : null;
-      setFound({ row, calc, peers: list.rows, gender: g, road, roadCalc });
+      if (hit.row) {
+        const row = hit.row;
+        const [calc, list, road] = await Promise.all([
+          fetchRankingCalculation(row.id),
+          ranking(g),
+          roadToBirmingham(g),
+        ]);
+        const roadCalculationId = road
+          ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
+          : undefined;
+        const roadCalc =
+          roadCalculationId != null
+            ? await fetchRankingCalculation(roadCalculationId).catch((e) => {
+                console.warn('Road to Birmingham calculation fetch failed', e);
+                return null;
+              })
+            : null;
+        setFound({
+          athlete: row.athlete,
+          athleteUrlSlug: row.athleteUrlSlug,
+          nationality: row.nationality,
+          gender: g,
+          ranked: { row, calc, peers: list.rows },
+          road,
+          roadCalc,
+        });
+      } else {
+        // No World Ranking entry — e.g. an entry-standard qualifier with too few counting
+        // results for a ranking score. Everything we can show comes from the Road to
+        // Birmingham qualification entry itself.
+        const road = await roadToBirmingham(g);
+        setFound({
+          athlete: hit.athlete,
+          athleteUrlSlug: hit.athleteUrlSlug,
+          nationality: hit.nationality,
+          gender: g,
+          ranked: null,
+          road,
+          roadCalc: null,
+        });
+      }
       setStatus('idle');
     } catch (e) {
       setStatus('error');
@@ -184,11 +245,19 @@ export function AthleteLookup() {
     setFound(null);
     setCandidates([]);
     try {
-      const { rows } = await ranking(g);
-      const hits = rows.filter((r) => matches(q, r.athlete));
+      const [{ rows }, road] = await Promise.all([ranking(g), roadToBirmingham(g)]);
+      const rankedHits = rows.filter((r) => matches(q, r.athlete)).map(hitFromRow);
+      const rankedSlugs = new Set(rankedHits.map((h) => h.athleteUrlSlug));
+      // Qualifiers with no World Ranking entry (e.g. by entry standard) are otherwise
+      // invisible to search, since the ranking list used to be the only thing matched
+      // against — surface them from the Road to Birmingham list too.
+      const roadOnlyHits = (road?.qualifications ?? [])
+        .filter((e) => !rankedSlugs.has(e.competitor.urlSlug) && matches(q, e.competitor.name))
+        .map(hitFromQualification);
+      const hits = [...rankedHits, ...roadOnlyHits];
       if (hits.length === 0) {
         setStatus('error');
-        setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking.`);
+        setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking or Road to Birmingham list.`);
       } else if (hits.length === 1) {
         await select(hits[0], g);
       } else {
@@ -271,7 +340,7 @@ export function AthleteLookup() {
       {candidates.length > 0 && (
         <ul className="lookup-candidates">
           {candidates.map((c) => (
-            <li key={c.id}>
+            <li key={c.athleteUrlSlug}>
               <button
                 type="button"
                 className="lookup-candidates-element"
@@ -287,7 +356,14 @@ export function AthleteLookup() {
                   />
                 </span>
                 <span className="muted" style={{ marginLeft: 'auto' }}>
-                  {c.nationality} · #<span className={placeClass(c.place)}>{c.place}</span> EU · #<span className={placeClass(c.worldPlace)}>{c.worldPlace}</span> World
+                  {c.row ? (
+                    <>
+                      {c.row.nationality} · #<span className={placeClass(c.row.place)}>{c.row.place}</span> EU · #
+                      <span className={placeClass(c.row.worldPlace)}>{c.row.worldPlace}</span> World
+                    </>
+                  ) : (
+                    <>{c.nationality} · {c.qualifiedBy ?? 'Not yet ranked'}</>
+                  )}
                 </span>
               </button>
 
@@ -362,23 +438,23 @@ function currentRoadPosition(
 }
 
 function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
-  const { row, calc, peers, gender, road, roadCalc } = found;
-  const results = calc.results;
+  const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
+  const results = ranked?.calc.results ?? [];
   const baseScores = results.map((r) => r.performanceScore);
-  const peerScores = peers.filter((p) => p.id !== row.id).map((p) => p.rankingScore);
-  const placeDelta = delta(row.place, row.previousPlace, true);
-  const scoreDelta = delta(row.rankingScore, row.previousRankingScore, false);
+  const peerScores = ranked ? ranked.peers.filter((p) => p.id !== ranked.row.id).map((p) => p.rankingScore) : [];
+  const placeDelta = ranked ? delta(ranked.row.place, ranked.row.previousPlace, true) : null;
+  const scoreDelta = ranked ? delta(ranked.row.rankingScore, ranked.row.previousRankingScore, false) : null;
 
-  const roadEntry = road ? findQualification(road, row.athleteUrlSlug) : undefined;
+  const roadEntry = road ? findQualification(road, athleteUrlSlug) : undefined;
   const roadStat = roadToStat(road, roadEntry);
   const displayedResults = rankingType === 'road' && roadCalc ? roadCalc.results : results;
   const roadSim: RoadSimData | undefined =
-    road && roadCalc
+    ranked && road && roadCalc
       ? {
           baseScores: roadCalc.results.map((r) => r.performanceScore),
           currentScore: roadCalc.averagePerformanceScore,
-          peers: worldRankingPoolPeers(road, row.athleteUrlSlug),
-          country: row.nationality,
+          peers: worldRankingPoolPeers(road, athleteUrlSlug),
+          country: nationality,
           countryPreOccupancy: countryPreOccupancy(road),
           currentPosition: currentRoadPosition(road, roadEntry),
           nonRankingSlots: road.entryNumber - road.numberOfCompetitorsFilledUpByWorldRankings,
@@ -394,34 +470,44 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
       <div className="lookup-head">
         <div className="lookup-name-row">
           <div className="lookup-name">
-            {row.athlete}
-            {isKlara(row.athlete) && <KlaraDiadem />}
+            {athlete}
+            {isKlara(athlete) && <KlaraDiadem />}
           </div>
           <FavoriteStar
-            slug={row.athleteUrlSlug}
-            name={row.athlete}
+            slug={athleteUrlSlug}
+            name={athlete}
             gender={gender}
             onNeedSignIn={onNeedSignIn}
           />
         </div>
-        <div className="muted">{row.nationality} · High Jump</div>
+        <div className="muted">{nationality} · High Jump</div>
       </div>
 
       <div className="lookup-stats">
-        <div className="stat">
-          <div className="stat-label">Score</div>
-          <div className="stat-value">{row.rankingScore}</div>
-          {scoreDelta && <div className="stat-delta">{scoreDelta} vs last week</div>}
-        </div>
-        <div className="stat">
-          <div className="stat-label">European</div>
-          <div className={`stat-value ${placeClass(row.place) ?? ''}`}>#{row.place}</div>
-          {placeDelta && <div className="stat-delta">{placeDelta}</div>}
-        </div>
-        <div className="stat">
-          <div className="stat-label">World</div>
-          <div className={`stat-value ${placeClass(row.worldPlace) ?? ''}`}>#{row.worldPlace}</div>
-        </div>
+        {ranked ? (
+          <>
+            <div className="stat">
+              <div className="stat-label">Score</div>
+              <div className="stat-value">{ranked.row.rankingScore}</div>
+              {scoreDelta && <div className="stat-delta">{scoreDelta} vs last week</div>}
+            </div>
+            <div className="stat">
+              <div className="stat-label">European</div>
+              <div className={`stat-value ${placeClass(ranked.row.place) ?? ''}`}>#{ranked.row.place}</div>
+              {placeDelta && <div className="stat-delta">{placeDelta}</div>}
+            </div>
+            <div className="stat">
+              <div className="stat-label">World</div>
+              <div className={`stat-value ${placeClass(ranked.row.worldPlace) ?? ''}`}>#{ranked.row.worldPlace}</div>
+            </div>
+          </>
+        ) : (
+          <div className="stat">
+            <div className="stat-label">World Ranking</div>
+            <div className="stat-value">—</div>
+            <div className="stat-delta">Not enough results to be ranked</div>
+          </div>
+        )}
         <div className="stat">
           <div className="stat-label">Road To</div>
           <div className="stat-value">{roadStat.value}</div>
@@ -438,41 +524,62 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
 
       <div className="section-divider" />
 
-      <div className="lookup-toggle-row">
-        <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
-      </div>
+      {ranked ? (
+        <>
+          <div className="lookup-toggle-row">
+            <RankingTypeToggle value={rankingType} gender={gender} onChange={changeRankingType} />
+          </div>
 
-      <div className="lookup-comps">
-        <ul className="comp-list">
-          {displayedResults.map((r, i) => (
-            <li className="comp-item" key={`${r.date}-${i}`}>
-              <div className="comp-main">
-                <div className="comp-name">{r.competition}</div>
-                <div className="comp-meta">
-                  <span className="cat-badge">{r.category}</span>
-                  {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+          <div className="lookup-comps">
+            <ul className="comp-list">
+              {displayedResults.map((r, i) => (
+                <li className="comp-item" key={`${r.date}-${i}`}>
+                  <div className="comp-main">
+                    <div className="comp-name">{r.competition}</div>
+                    <div className="comp-meta">
+                      <span className="cat-badge">{r.category}</span>
+                      {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                    </div>
+                  </div>
+                  <div className="comp-score">
+                    <span className="score-total">{r.performanceScore}</span>
+                    <span className="score-parts">
+                      {r.resultScore}+{r.placingScore}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <SimulateResult
+            gender={gender}
+            baseScores={baseScores}
+            currentScore={ranked.row.rankingScore}
+            currentPlace={ranked.row.place}
+            peerScores={peerScores}
+            road={roadSim}
+            rankingType={rankingType}
+          />
+        </>
+      ) : (
+        roadEntry?.qualificationDetails && (
+          <div className="lookup-comps">
+            <ul className="comp-list">
+              <li className="comp-item">
+                <div className="comp-main">
+                  <div className="comp-name">{roadEntry.qualifiedBy}</div>
+                  <div className="comp-meta">
+                    {roadEntry.qualificationDetails.venue}
+                    {roadEntry.qualificationDetails.date && <> · {roadEntry.qualificationDetails.date}</>}
+                    {roadEntry.qualificationDetails.result && <> · {roadEntry.qualificationDetails.result} m</>}
+                  </div>
                 </div>
-              </div>
-              <div className="comp-score">
-                <span className="score-total">{r.performanceScore}</span>
-                <span className="score-parts">
-                  {r.resultScore}+{r.placingScore}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <SimulateResult
-        gender={gender}
-        baseScores={baseScores}
-        currentScore={row.rankingScore}
-        currentPlace={row.place}
-        peerScores={peerScores}
-        road={roadSim}
-        rankingType={rankingType}
-      />
+              </li>
+            </ul>
+          </div>
+        )
+      )}
     </div>
   );
 }
