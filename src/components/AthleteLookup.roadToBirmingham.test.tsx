@@ -17,6 +17,10 @@ vi.mock('../hooks/FavoritesContext', () => ({
     loading: false,
   }),
 }));
+vi.mock('../data/athleteResultsApi', () => ({
+  athleteIdFromSlug: () => 1,
+  fetchAthleteHighJumpResults: vi.fn(async () => []),
+}));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
   fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),

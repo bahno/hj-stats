@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   type Gender,
   type RankingType,
@@ -17,6 +17,21 @@ import {
   type QualificationEntry,
   type RoadToBirmingham as RoadToBirminghamData,
 } from '../data/birminghamApi';
+import {
+  athleteIdFromSlug,
+  fetchAthleteHighJumpResults,
+  type AthleteResult,
+} from '../data/athleteResultsApi';
+import {
+  allCountingInWindow,
+  countingKey,
+  oneYearEarlier,
+  parseWaDate,
+  recount,
+  resultKey,
+  substitutePool,
+  type CountingEntry,
+} from '../engine/counting';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
@@ -111,6 +126,9 @@ interface Found {
   road: RoadToBirminghamData | null;
   /** null unless the athlete is in the Birmingham world-rankings pool and the fetch succeeded. */
   roadCalc: RankingCalculation | null;
+  /** The World/European ranking's publication date ("26 JUL 2026"); the end of its rolling
+   *  12-month counting window. '' when the athlete has no ranking entry. */
+  rankDate: string;
 }
 
 /**
@@ -216,6 +234,7 @@ export function AthleteLookup() {
           ranked: { row, calc, peers: list.rows },
           road,
           roadCalc,
+          rankDate: list.rankDate,
         });
       } else {
         // No World Ranking entry — e.g. an entry-standard qualifier with too few counting
@@ -230,6 +249,7 @@ export function AthleteLookup() {
           ranked: null,
           road,
           roadCalc: null,
+          rankDate: '',
         });
       }
       setStatus('idle');
@@ -437,6 +457,60 @@ function currentRoadPosition(
   return pos ?? qualifyingPoolPositionIgnoringQuota(road, entry.competitor.urlSlug);
 }
 
+/** The calendar years an inclusive [startMs, endMs] window touches — the set to fetch. */
+function yearsInRange(startMs: number, endMs: number): number[] {
+  const from = new Date(startMs).getUTCFullYear();
+  const to = new Date(endMs).getUTCFullYear();
+  const years: number[] = [];
+  for (let y = from; y <= to; y++) years.push(y);
+  return years;
+}
+
+type ResultsState = 'idle' | 'loading' | 'ready' | 'error';
+
+/**
+ * Lazily loads an athlete's full High Jump result list from WorldAthletics (see
+ * athleteResultsApi.ts) once we have a window to fetch. Powers the "remove a counting
+ * competition and slot in the next best" feature; on any failure it stays in `error` and
+ * the feature simply doesn't offer removal, never blocking the core lookup.
+ */
+function useAthleteResults(slug: string, years: number[], enabled: boolean) {
+  const [results, setResults] = useState<AthleteResult[] | null>(null);
+  const [state, setState] = useState<ResultsState>('idle');
+  // Stable dependency so we refetch only when the athlete or the fetched years change.
+  const yearsKey = years.join(',');
+  useEffect(() => {
+    setResults(null);
+    if (!enabled || years.length === 0) {
+      setState('idle');
+      return;
+    }
+    const id = athleteIdFromSlug(slug);
+    if (id == null) {
+      setState('error');
+      return;
+    }
+    let cancelled = false;
+    setState('loading');
+    fetchAthleteHighJumpResults(id, years)
+      .then((rs) => {
+        if (cancelled) return;
+        setResults(rs);
+        setState('ready');
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.warn('Athlete results fetch failed', e);
+        setState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, yearsKey, enabled]);
+  return { results, state };
+}
+
 function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
   const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
   const results = ranked?.calc.results ?? [];
@@ -464,6 +538,89 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
           lastRankingDay: road.lastRankingDay,
         }
       : undefined;
+
+  // --- Temporarily remove a counting competition and slot in the next best ---------------
+  // The counting window for the currently-selected ranking: a rolling 12 months ending at
+  // the rank date for World/European, or Birmingham's fixed first/last ranking day for Road.
+  const onRoad = rankingType === 'road' && !!roadCalc && !!road;
+  const activeWindow = useMemo(() => {
+    if (onRoad && road) {
+      return { start: parseWaDate(road.firstRankingDay), end: parseWaDate(road.lastRankingDay) };
+    }
+    const end = parseWaDate(found.rankDate);
+    return { start: oneYearEarlier(end), end };
+  }, [onRoad, road, found.rankDate]);
+
+  // Fetch every year any of the athlete's windows might touch (so switching ranking type
+  // never needs a refetch), but only when we actually have a ranking to reconstruct.
+  const fetchYears = useMemo(() => {
+    const bounds = [activeWindow.start, activeWindow.end];
+    if (road) bounds.push(parseWaDate(road.firstRankingDay), parseWaDate(road.lastRankingDay));
+    if (found.rankDate) {
+      const end = parseWaDate(found.rankDate);
+      bounds.push(oneYearEarlier(end), end);
+    }
+    const valid = bounds.filter(Number.isFinite);
+    return valid.length ? yearsInRange(Math.min(...valid), Math.max(...valid)) : [];
+  }, [activeWindow, road, found.rankDate]);
+
+  const { results: allResults, state: resultsState } = useAthleteResults(
+    athleteUrlSlug,
+    fetchYears,
+    !!ranked,
+  );
+
+  // The official counting set (from WA's calc) is trusted as-is; we only derive the "next
+  // best" substitutes. `cap` is the lowest counting score — a real 6th never out-scores the 5.
+  const windowValid = Number.isFinite(activeWindow.start) && Number.isFinite(activeWindow.end);
+  const countingEntries: CountingEntry[] = useMemo(
+    () => displayedResults.map((r) => ({ key: resultKey(r), score: r.performanceScore })),
+    [displayedResults],
+  );
+  const cap = countingEntries.length ? Math.min(...countingEntries.map((c) => c.score)) : 0;
+
+  const subs = useMemo(() => {
+    if (!allResults || !windowValid) return [];
+    // Exclude the counting results by a place-independent key (a qual's place drifts between
+    // the calc and profile feeds), so an already-counting result can't reappear as a substitute.
+    const keys = new Set(displayedResults.map(countingKey));
+    return substitutePool(allResults, activeWindow.start, activeWindow.end, keys, cap);
+  }, [allResults, windowValid, activeWindow, displayedResults, cap]);
+
+  // Offer replacement only when the window is sound: valid bounds and every official counting
+  // result sits inside it (a wrong rank date would put one outside and make the 6th unreliable).
+  const canReplace =
+    !!allResults && windowValid && allCountingInWindow(displayedResults, activeWindow.start, activeWindow.end);
+
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // A removal only makes sense against the current athlete + ranking window; reset otherwise.
+  useEffect(() => {
+    setRemoved(new Set());
+  }, [athleteUrlSlug, rankingType]);
+
+  const recomputed = canReplace && removed.size > 0 ? recount(countingEntries, removed, subs) : null;
+  const substitutes = recomputed ? recomputed.substitutesUsed : [];
+
+  const currentSelectedScore = onRoad && roadCalc ? roadCalc.averagePerformanceScore : ranked?.row.rankingScore ?? 0;
+  const adjustedDelta = recomputed ? recomputed.average - currentSelectedScore : 0;
+
+  function toggleRemoved(key: string) {
+    setRemoved((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  // Feed the adjusted counting set into the simulator so a simulated result builds on the
+  // post-removal five, per ranking type (removals only ever exist for the active one).
+  const simBaseScores = recomputed && !onRoad ? recomputed.baseScores : baseScores;
+  const simCurrentScore = recomputed && !onRoad ? recomputed.average : ranked?.row.rankingScore ?? 0;
+  const simRoad =
+    recomputed && onRoad && roadSim
+      ? { ...roadSim, baseScores: recomputed.baseScores, currentScore: recomputed.average }
+      : roadSim;
 
   return (
     <div className="lookup-result">
@@ -531,34 +688,89 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
           </div>
 
           <div className="lookup-comps">
+            {recomputed && (
+              <div className="recount-summary" data-testid="recount-summary">
+                <span className="recount-label">Adjusted ranking</span>
+                <span className="recount-value">{recomputed.average}</span>
+                <span className={`recount-delta ${adjustedDelta === 0 ? 'flat' : adjustedDelta > 0 ? 'up' : 'down'}`}>
+                  {adjustedDelta === 0 ? '±0' : `${adjustedDelta > 0 ? '▲' : '▼'} ${Math.abs(adjustedDelta)}`}
+                </span>
+                <button type="button" className="recount-reset" onClick={() => setRemoved(new Set())}>
+                  Reset
+                </button>
+              </div>
+            )}
             <ul className="comp-list">
-              {displayedResults.map((r, i) => (
-                <li className="comp-item" key={`${r.date}-${i}`}>
+              {displayedResults.map((r, i) => {
+                const key = resultKey(r);
+                const isRemoved = removed.has(key);
+                return (
+                  <li className={`comp-item ${isRemoved ? 'removed' : ''}`} key={`${r.date}-${i}`}>
+                    <div className="comp-main">
+                      <div className="comp-name">{r.competition}</div>
+                      <div className="comp-meta">
+                        <span className="cat-badge">{r.category}</span>
+                        {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                      </div>
+                    </div>
+                    <div className="comp-score">
+                      <span className="score-total">{r.performanceScore}</span>
+                      <span className="score-parts">
+                        {r.resultScore}+{r.placingScore}
+                      </span>
+                    </div>
+                    {canReplace && (
+                      <button
+                        type="button"
+                        className={`comp-remove ${isRemoved ? 'on' : ''}`}
+                        aria-pressed={isRemoved}
+                        aria-label={isRemoved ? 'Restore this competition' : 'Remove this competition'}
+                        title={isRemoved ? 'Restore this competition' : 'Remove (expired) — recalculate with the next best result'}
+                        onClick={() => toggleRemoved(key)}
+                      >
+                        {isRemoved ? '↺' : '✕'}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+              {substitutes.map((r) => (
+                <li className="comp-item substitute" key={`sub-${resultKey(r)}`}>
                   <div className="comp-main">
-                    <div className="comp-name">{r.competition}</div>
+                    <div className="comp-name">
+                      {r.competition}
+                      <span className="sub-badge">Next best</span>
+                    </div>
                     <div className="comp-meta">
                       <span className="cat-badge">{r.category}</span>
+                      {r.race !== 'F' && <span className="qual-badge" title="Qualification round">Q</span>}
                       {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
                     </div>
                   </div>
                   <div className="comp-score">
-                    <span className="score-total">{r.performanceScore}</span>
+                    <span className="score-total">{r.score}</span>
                     <span className="score-parts">
-                      {r.resultScore}+{r.placingScore}
+                      {r.resultScore}+{r.score - r.resultScore}
                     </span>
                   </div>
                 </li>
               ))}
             </ul>
+            {resultsState === 'loading' && (
+              <p className="comps-hint muted">Loading full results…</p>
+            )}
+            {resultsState === 'ready' && !canReplace && (
+              <p className="comps-hint muted">Result replacement unavailable for this athlete.</p>
+            )}
           </div>
 
           <SimulateResult
             gender={gender}
-            baseScores={baseScores}
-            currentScore={ranked.row.rankingScore}
+            baseScores={simBaseScores}
+            currentScore={simCurrentScore}
             currentPlace={ranked.row.place}
             peerScores={peerScores}
-            road={roadSim}
+            road={simRoad}
             rankingType={rankingType}
           />
         </>

@@ -18,6 +18,10 @@ vi.mock('../hooks/FavoritesContext', () => ({
   }),
 }));
 // Avoid real network from the ranking API on mount.
+vi.mock('../data/athleteResultsApi', () => ({
+  athleteIdFromSlug: () => 1,
+  fetchAthleteHighJumpResults: vi.fn(async () => []),
+}));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
   fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
