@@ -609,9 +609,10 @@ const curr = (over: Partial<RankingState> = {}): RankingState => ({
 });
 
 describe('diffResults', () => {
-  it('reports nothing on first run when prev is empty and curr has items (seed only)', () => {
-    // First-run policy: seeding is handled by the caller; diffResults still returns
-    // the delta, so the caller must skip notifications on an empty snapshot.
+  it('treats every current result as new when prev is empty (caller seeds on first run)', () => {
+    // diffResults is pure: with no prior results, all current results are "new".
+    // The first-run seeding policy lives in the poller (Task 7), which skips
+    // notifications when the snapshot did not previously exist.
     const out = diffResults([], [{ date: '2026-07-05', competition: 'X', mark: '2.30' }]);
     expect(out).toHaveLength(1);
   });
@@ -933,10 +934,16 @@ git commit -m "feat: pure notification detectors and digest builders"
 - Consumes: `RankingState`, `ResultItem`, `QualificationState`, `Gender` from `./detectors`.
 - Produces:
   - `parseResults(profile: unknown): ResultItem[]` (pure)
-  - `parseQualification(row: unknown, roadRows: unknown): QualificationState | null` (pure)
+  - `type RoadToLite = { entryNumber: number | null; qualifications: Array<{ urlSlug: string; qualified: boolean; qualificationPosition: number | null }> }`
+  - `parseRoadTo(raw: unknown): RoadToLite` (pure)
+  - `qualificationFor(road: RoadToLite | null, slug: string): QualificationState | null` (pure)
   - `buildRankingState(row: RankingRowLite, rankDate: string, results: ResultItem[], qual: QualificationState | null): RankingState` (pure)
-  - `fetchAthleteState(slug: string, gender: Gender, deps?: FetchDeps): Promise<RankingState | null>` (IO; `deps.fetchJson` injectable for tests)
+  - `fetchRoadTo(gender: Gender, deps?: FetchDeps): Promise<RoadToLite>` (IO)
+  - `fetchAthleteState(slug: string, gender: Gender, deps?: FetchDeps, roadTo?: RoadToLite | null): Promise<RankingState | null>` (IO; `deps.fetchJson` injectable for tests; `roadTo` pre-fetched per gender by the poller)
   - `type RankingRowLite = { europeanPlace: number | null; worldPlace: number | null; rankingScore: number | null; calculationId: number | null }`
+
+Reuses the verified endpoint already mapped in `src/data/birminghamApi.ts`:
+`worldAthletics.getCompetitionQualifyingSystem` (competitionId 7192415 = Road to Birmingham 2026; eventId 10229615 men / 10229526 women). Each entry carries `competitor.urlSlug` (matches the ranking slug), `qualified`, and `qualificationPosition`.
 
 - [ ] **Step 1: Write the failing test (pure parsers only)**
 
@@ -944,7 +951,7 @@ Create `supabase/functions/_shared/ea.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { parseResults, buildRankingState } from './ea';
+import { parseResults, buildRankingState, parseRoadTo, qualificationFor } from './ea';
 
 describe('parseResults', () => {
   it('maps a profile results-by-year structure into flat ResultItem[]', () => {
@@ -989,6 +996,54 @@ describe('buildRankingState', () => {
     expect(s.qualification?.qualified).toBe(true);
   });
 });
+
+describe('parseRoadTo', () => {
+  it('reduces the qualifying-system response to slug/qualified/position', () => {
+    const raw = {
+      entryNumber: 30,
+      qualifications: [
+        {
+          qualified: true,
+          qualificationPosition: 12,
+          competitor: { urlSlug: 'italy/gianmarco-tamberi-14375750' },
+        },
+        {
+          qualified: false,
+          qualificationPosition: null,
+          competitor: { urlSlug: 'ukraine/oleh-doroshchuk-14803002' },
+        },
+      ],
+    };
+    const out = parseRoadTo(raw);
+    expect(out.entryNumber).toBe(30);
+    expect(out.qualifications).toEqual([
+      { urlSlug: 'italy/gianmarco-tamberi-14375750', qualified: true, qualificationPosition: 12 },
+      { urlSlug: 'ukraine/oleh-doroshchuk-14803002', qualified: false, qualificationPosition: null },
+    ]);
+  });
+
+  it('returns an empty structure for an unexpected shape', () => {
+    expect(parseRoadTo(null)).toEqual({ entryNumber: null, qualifications: [] });
+  });
+});
+
+describe('qualificationFor', () => {
+  const road = {
+    entryNumber: 30,
+    qualifications: [
+      { urlSlug: 'a', qualified: true, qualificationPosition: 12 },
+      { urlSlug: 'b', qualified: false, qualificationPosition: null },
+    ],
+  };
+  it('maps a matched entry to QualificationState (target = entryNumber)', () => {
+    expect(qualificationFor(road, 'a')).toEqual({ qualified: true, place: 12, target: 30 });
+    expect(qualificationFor(road, 'b')).toEqual({ qualified: false, place: null, target: 30 });
+  });
+  it('returns null when the athlete is not in the system, or road is null', () => {
+    expect(qualificationFor(road, 'zzz')).toBeNull();
+    expect(qualificationFor(null, 'a')).toBeNull();
+  });
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1017,6 +1072,16 @@ export type RankingRowLite = {
   rankingScore: number | null;
   calculationId: number | null;
 };
+
+export type RoadToLite = {
+  entryNumber: number | null;
+  qualifications: Array<{ urlSlug: string; qualified: boolean; qualificationPosition: number | null }>;
+};
+
+// Road to Birmingham 2026 (2026 European Athletics Championships). Same IDs as
+// src/data/birminghamApi.ts, verified 2026-07-11.
+const BIRMINGHAM_COMPETITION_ID = 7192415;
+const HIGH_JUMP_EVENT_ID: Record<Gender, number> = { men: 10229615, women: 10229526 };
 
 export interface FetchDeps {
   fetchJson: (url: string) => Promise<unknown>;
@@ -1076,6 +1141,35 @@ export function buildRankingState(
   };
 }
 
+export function parseRoadTo(raw: unknown): RoadToLite {
+  const r = raw as {
+    entryNumber?: number;
+    qualifications?: Array<{
+      qualified?: boolean;
+      qualificationPosition?: number | null;
+      competitor?: { urlSlug?: string };
+    }>;
+  };
+  const list = Array.isArray(r?.qualifications) ? r.qualifications : [];
+  return {
+    entryNumber: typeof r?.entryNumber === 'number' ? r.entryNumber : null,
+    qualifications: list
+      .filter((q) => q?.competitor?.urlSlug)
+      .map((q) => ({
+        urlSlug: String(q.competitor!.urlSlug),
+        qualified: Boolean(q.qualified),
+        qualificationPosition: q.qualificationPosition ?? null,
+      })),
+  };
+}
+
+export function qualificationFor(road: RoadToLite | null, slug: string): QualificationState | null {
+  if (!road) return null;
+  const entry = road.qualifications.find((q) => q.urlSlug === slug);
+  if (!entry) return null;
+  return { qualified: entry.qualified, place: entry.qualificationPosition, target: road.entryNumber };
+}
+
 // --- IO ---------------------------------------------------------------------
 
 /** Resolve a favorited athlete's slug to their current ranking row by scanning
@@ -1115,10 +1209,25 @@ async function findRow(
   };
 }
 
+/** Fetch the Road to Birmingham qualifying system for a gender (one call covers
+ *  every athlete of that gender — the poller fetches this once per gender). */
+export async function fetchRoadTo(gender: Gender, deps: FetchDeps = realDeps): Promise<RoadToLite> {
+  const raw = unwrap(
+    await deps.fetchJson(
+      trpcUrl('worldAthletics.getCompetitionQualifyingSystem', {
+        competitionId: BIRMINGHAM_COMPETITION_ID,
+        eventId: HIGH_JUMP_EVENT_ID[gender],
+      }),
+    ),
+  );
+  return parseRoadTo(raw);
+}
+
 export async function fetchAthleteState(
   slug: string,
   gender: Gender,
   deps: FetchDeps = realDeps,
+  roadTo: RoadToLite | null = null,
 ): Promise<RankingState | null> {
   const found = await findRow(slug, gender, deps);
   if (!found) return null;
@@ -1135,14 +1244,16 @@ export async function fetchAthleteState(
     }
   }
 
-  // Qualification (road-to) is best-effort; null when unavailable.
-  const qualification: QualificationState | null = null;
+  // Qualification comes from the per-gender road-to system the poller pre-fetched.
+  // qualificationFor returns null when roadTo is null (fetch failed) or the athlete
+  // isn't in the system — diffQualification then stays quiet. Graceful degradation.
+  const qualification = qualificationFor(roadTo, slug);
 
   return buildRankingState(found.row, found.rankDate, results, qualification);
 }
 ```
 
-Note on qualification: v1 leaves `qualification` as `null` from the client (road-to scraping is the most fragile piece). `diffQualification` already returns `null` when either side lacks qualification data, so the trigger simply stays dormant until a follow-up wires road-to parsing into `fetchAthleteState`. This is the graceful-degradation path the spec calls for. Document this in the PR description.
+Note: `roadTo` is optional and defaults to `null`, so the pure-parser tests and any caller that doesn't need qualification still work. The poller (Task 7) fetches road-to once per gender and passes it in.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1294,7 +1405,7 @@ This task is I/O orchestration over already-tested pure units. It is verified by
 // fetch current EA state, diff against the stored snapshot, and email per-user
 // digests: new results daily; ranking changes only when a new rankDate appears.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { fetchAthleteState } from '../_shared/ea.ts';
+import { fetchAthleteState, fetchRoadTo, type RoadToLite } from '../_shared/ea.ts';
 import {
   diffResults,
   diffPlace,
@@ -1352,12 +1463,24 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Pre-fetch the road-to qualifying system once per gender present among favorites
+  // (one call covers all athletes of that gender). Best-effort: null on failure.
+  const roadToByGender = new Map<Gender, RoadToLite | null>();
+  for (const g of new Set([...distinct.values()].map((a) => a.gender))) {
+    try {
+      roadToByGender.set(g, await fetchRoadTo(g));
+    } catch (e) {
+      console.error(`road-to fetch failed for ${g}:`, e);
+      roadToByGender.set(g, null);
+    }
+  }
+
   const athleteEvents = new Map<Key, AthleteEvents>();
   let rankingWeek: string | null = null;
 
   for (const [k, a] of distinct) {
     try {
-      const state = await fetchAthleteState(a.slug, a.gender);
+      const state = await fetchAthleteState(a.slug, a.gender, undefined, roadToByGender.get(a.gender) ?? null);
       if (!state) continue;
       rankingWeek = rankingWeek ?? state.rankDate;
 
@@ -1871,7 +1994,10 @@ Expect `{ ok: true, ... , dry: true }` and `status='dry'` rows in
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
-- Qualification (road-to) detection is dormant in v1; see the PR notes.
+- Qualification tracks the Road to Birmingham 2026 (European Championships) qualifying
+  system; it fires when an athlete enters or drops out of the quota. If the road-to
+  endpoint is unavailable on a run, qualification is skipped for that run (results and
+  ranking still send).
 ````
 
 - [ ] **Step 2: Commit**
@@ -1887,13 +2013,13 @@ git commit -m "docs: notifications operator setup guide"
 
 **Spec coverage:**
 - Two cadences (daily results / weekly ranking, rankDate-gated) → Task 7 orchestration. ✓
-- Four triggers (place/score/result/qualification) → Task 4 detectors; qualification dormant-but-wired per spec risk section (Task 5 note). ✓
+- Four triggers (place/score/result/qualification) → Task 4 detectors; qualification wired live via Road to Birmingham road-to system (Task 5 `fetchRoadTo`/`qualificationFor`, Task 7 per-gender prefetch). ✓
 - Per-athlete, per-trigger control → Tasks 2, 3, 9. ✓
 - Opt-in default off + unsubscribe → Task 1 (default false), Task 8 (unsubscribe), Task 6 (`appendUnsubscribe`). ✓
 - Idempotency (`unique(user_id, kind, period)` + last_* guards) → Task 1 schema, Task 7 `deliver()`. ✓
 - Service-role-only snapshots/deliveries → Task 1 RLS. ✓
 - Pluggable channel → Task 6 `Channel` interface. ✓
-- Graceful degradation → Task 5 (results try/catch, qualification null), Task 7 (per-athlete try/catch). ✓
+- Graceful degradation → Task 5 (results try/catch, `qualificationFor` null-safe), Task 7 (per-gender road-to try/catch, per-athlete try/catch). ✓
 - Resend provisioning as operator action → Task 10. ✓
 - Pure logic vitest-tested, edge functions thin → Tasks 4/5/6 tested; 7/8 manual. ✓
 
