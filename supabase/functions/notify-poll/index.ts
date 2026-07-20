@@ -34,18 +34,26 @@ Deno.serve(async (req) => {
   const today = new Date().toISOString().slice(0, 10);
 
   // 1. Opted-in users + their favorites.
-  const { data: settings } = await admin
+  const { data: settings, error: settingsError } = await admin
     .from('notification_settings')
     .select('user_id, unsubscribe_token, last_results_date, last_ranking_week')
     .eq('email_enabled', true);
+  if (settingsError) {
+    console.error('notification_settings query failed:', settingsError);
+    return json({ ok: false, error: 'notification_settings query failed' }, cors, 500);
+  }
   const optedIn = settings ?? [];
   if (optedIn.length === 0) return json({ ok: true, users: 0 }, cors);
 
   const userIds = optedIn.map((s) => s.user_id);
-  const { data: favRows } = await admin
+  const { data: favRows, error: favoritesError } = await admin
     .from('favorites')
     .select('user_id, athlete_slug, athlete_name, gender, notify_prefs')
     .in('user_id', userIds);
+  if (favoritesError) {
+    console.error('favorites query failed:', favoritesError);
+    return json({ ok: false, error: 'favorites query failed' }, cors, 500);
+  }
   const favorites = favRows ?? [];
 
   // 2. Fetch each distinct athlete once; compute events vs snapshot.
@@ -79,7 +87,7 @@ Deno.serve(async (req) => {
     try {
       const state = await fetchAthleteState(a.slug, a.gender, undefined, roadToByGender.get(a.gender) ?? null);
       if (!state) continue;
-      rankingWeek = rankingWeek ?? state.rankDate;
+      if (!rankingWeek && state.rankDate) rankingWeek = state.rankDate;
 
       const { data: snapRow } = await admin
         .from('ranking_snapshots')
@@ -149,13 +157,15 @@ Deno.serve(async (req) => {
     if (s.last_results_date !== today) {
       const digest = buildResultsDigest(name, events);
       if (digest) {
-        await deliver(admin, channel, email, appendUnsubscribe(digest, unsubUrl), {
+        const result = await deliver(admin, channel, email, appendUnsubscribe(digest, unsubUrl), {
           user_id: s.user_id,
           kind: 'results',
           period: today,
         }, dry);
-        await admin.from('notification_settings').update({ last_results_date: today }).eq('user_id', s.user_id);
-        sent++;
+        if (!dry) {
+          await admin.from('notification_settings').update({ last_results_date: today }).eq('user_id', s.user_id);
+        }
+        if (result === 'sent' || result === 'dry') sent++;
       }
     }
 
@@ -163,13 +173,15 @@ Deno.serve(async (req) => {
     if (rankingWeek && s.last_ranking_week !== rankingWeek) {
       const digest = buildRankingDigest(name, events);
       if (digest) {
-        await deliver(admin, channel, email, appendUnsubscribe(digest, unsubUrl), {
+        const result = await deliver(admin, channel, email, appendUnsubscribe(digest, unsubUrl), {
           user_id: s.user_id,
           kind: 'ranking',
           period: rankingWeek,
         }, dry);
-        await admin.from('notification_settings').update({ last_ranking_week: rankingWeek }).eq('user_id', s.user_id);
-        sent++;
+        if (!dry) {
+          await admin.from('notification_settings').update({ last_ranking_week: rankingWeek }).eq('user_id', s.user_id);
+        }
+        if (result === 'sent' || result === 'dry') sent++;
       }
     }
   }
@@ -184,7 +196,13 @@ async function deliver(
   payload: { subject: string; html: string; text: string },
   meta: { user_id: string; kind: string; period: string },
   dry: boolean,
-): Promise<void> {
+): Promise<'sent' | 'skipped' | 'error' | 'dry'> {
+  if (dry) {
+    // Fully side-effect-free: no read or write of notification_deliveries.
+    console.log(`[dry] ${meta.kind} -> ${email} (period=${meta.period}): ${payload.subject}`);
+    return 'dry';
+  }
+
   // Idempotency: skip if already delivered for this (user, kind, period).
   const { data: existing } = await admin
     .from('notification_deliveries')
@@ -193,32 +211,37 @@ async function deliver(
     .eq('kind', meta.kind)
     .eq('period', meta.period)
     .maybeSingle();
-  if (existing) return;
+  if (existing) return 'skipped';
 
-  let status = 'sent';
-  let error: string | null = null;
-  if (!dry) {
-    try {
-      await channel.send(email, payload);
-    } catch (e) {
-      status = 'error';
-      error = e instanceof Error ? e.message : String(e);
-    }
-  } else {
-    status = 'dry';
+  try {
+    await channel.send(email, payload);
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    await admin.from('notification_deliveries').insert({
+      user_id: meta.user_id,
+      kind: meta.kind,
+      period: meta.period,
+      status: 'error',
+      error,
+      summary: { subject: payload.subject },
+    });
+    return 'error';
   }
+
   await admin.from('notification_deliveries').insert({
     user_id: meta.user_id,
     kind: meta.kind,
     period: meta.period,
-    status,
-    error,
+    status: 'sent',
+    error: null,
     summary: { subject: payload.subject },
   });
+  return 'sent';
 }
 
-function json(body: unknown, headers: Record<string, string>): Response {
+function json(body: unknown, headers: Record<string, string>, status = 200): Response {
   return new Response(JSON.stringify(body), {
+    status,
     headers: { ...headers, 'Content-Type': 'application/json' },
   });
 }
