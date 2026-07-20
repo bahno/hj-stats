@@ -1,0 +1,66 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mockSupabase } from '../test/supabaseMock';
+
+vi.mock('../lib/supabase', () => ({ supabase: null as unknown }));
+import * as supa from '../lib/supabase';
+import {
+  getNotificationSettings,
+  updateNotificationSettings,
+  updateFavoriteNotifyPrefs,
+  listFavorites,
+} from './userData';
+
+beforeEach(() => {
+  (supa as { supabase: unknown }).supabase = null;
+});
+
+describe('notification settings data layer', () => {
+  it('returns null settings when supabase is not configured', async () => {
+    expect(await getNotificationSettings('u1')).toBeNull();
+  });
+
+  it('reads settings row', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: { email_enabled: true, unsubscribe_token: 'tok-1' },
+        error: null,
+      }),
+    });
+    const s = await getNotificationSettings('u1');
+    expect(s).toEqual({ email_enabled: true, unsubscribe_token: 'tok-1' });
+  });
+
+  it('throws when updating settings without supabase', async () => {
+    await expect(updateNotificationSettings('u1', { email_enabled: true })).rejects.toThrow();
+  });
+
+  it('throws when updating favorite prefs without supabase', async () => {
+    await expect(
+      updateFavoriteNotifyPrefs('u1', 'slug', 'men', {
+        place: true,
+        score: false,
+        result: true,
+        qualification: true,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('listFavorites returns notify_prefs from the row', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: [
+          {
+            id: 'f1',
+            athlete_slug: 's',
+            athlete_name: 'A',
+            gender: 'men',
+            notify_prefs: { place: true, score: true, result: false, qualification: true },
+          },
+        ],
+        error: null,
+      }),
+    });
+    const rows = await listFavorites('u1');
+    expect(rows[0].notify_prefs.result).toBe(false);
+  });
+});
