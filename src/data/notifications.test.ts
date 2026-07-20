@@ -8,6 +8,8 @@ import {
   updateNotificationSettings,
   updateFavoriteNotifyPrefs,
   listFavorites,
+  addFavorite,
+  DEFAULT_NOTIFY_PREFS,
 } from './userData';
 
 beforeEach(() => {
@@ -62,5 +64,98 @@ describe('notification settings data layer', () => {
     });
     const rows = await listFavorites('u1');
     expect(rows[0].notify_prefs.result).toBe(false);
+  });
+
+  it('listFavorites defaults notify_prefs to all-true when the row value is null', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: [
+          {
+            id: 'f1',
+            athlete_slug: 's',
+            athlete_name: 'A',
+            gender: 'men',
+            notify_prefs: null,
+          },
+        ],
+        error: null,
+      }),
+    });
+    const rows = await listFavorites('u1');
+    expect(rows[0].notify_prefs).toEqual({
+      place: true,
+      score: true,
+      result: true,
+      qualification: true,
+    });
+  });
+
+  it('listFavorites merges a partial notify_prefs over the defaults', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: [
+          {
+            id: 'f1',
+            athlete_slug: 's',
+            athlete_name: 'A',
+            gender: 'men',
+            notify_prefs: { result: false },
+          },
+        ],
+        error: null,
+      }),
+    });
+    const rows = await listFavorites('u1');
+    expect(rows[0].notify_prefs).toEqual({
+      place: true,
+      score: true,
+      result: false,
+      qualification: true,
+    });
+  });
+
+  it('addFavorite merges a null notify_prefs on the insert-return row over the defaults', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: {
+          id: 'f2',
+          athlete_slug: 's2',
+          athlete_name: 'B',
+          gender: 'women',
+          notify_prefs: null,
+        },
+        error: null,
+      }),
+    });
+    const fav = await addFavorite('u1', { athlete_slug: 's2', athlete_name: 'B', gender: 'women' });
+    expect(fav.notify_prefs).toEqual(DEFAULT_NOTIFY_PREFS);
+    expect(fav.notify_prefs).toEqual({
+      place: true,
+      score: true,
+      result: true,
+      qualification: true,
+    });
+  });
+
+  it('addFavorite merges a partial notify_prefs on the insert-return row over the defaults', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: {
+          id: 'f3',
+          athlete_slug: 's3',
+          athlete_name: 'C',
+          gender: 'men',
+          notify_prefs: { qualification: false },
+        },
+        error: null,
+      }),
+    });
+    const fav = await addFavorite('u1', { athlete_slug: 's3', athlete_name: 'C', gender: 'men' });
+    expect(fav.notify_prefs).toEqual({
+      place: true,
+      score: true,
+      result: true,
+      qualification: false,
+    });
   });
 });
