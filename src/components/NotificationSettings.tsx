@@ -4,11 +4,13 @@ import { useFavorites } from '../hooks/FavoritesContext';
 import { getNotificationSettings, updateNotificationSettings } from '../data/userData';
 import type { NotifyPrefs } from '../data/types';
 
-const TRIGGERS: Array<{ key: keyof NotifyPrefs; label: string }> = [
+// `label` is the full accessible name (used for each checkbox's aria-label);
+// `header` is the short visible column heading so all four columns stay equal.
+const TRIGGERS: Array<{ key: keyof NotifyPrefs; label: string; header?: string }> = [
   { key: 'place', label: 'Place' },
   { key: 'score', label: 'Score' },
   { key: 'result', label: 'Result' },
-  { key: 'qualification', label: 'Qualification' },
+  { key: 'qualification', label: 'Qualification', header: 'Quali' },
 ];
 
 export function NotificationSettings() {
@@ -50,6 +52,7 @@ export function NotificationSettings() {
       <h3>Email notifications</h3>
       <label className="notif-master">
         <input
+          className="notif-check"
           type="checkbox"
           checked={emailEnabled}
           onChange={toggleEmail}
@@ -62,26 +65,34 @@ export function NotificationSettings() {
       {favorites.length === 0 ? (
         <p className="muted">Star an athlete to choose what you get notified about.</p>
       ) : (
-        <ul className="notif-list">
-          {favorites.map((f) => (
-            <li key={f.id} className="notif-row">
-              <span className="notif-name">{f.athlete_name}</span>
-              <span className="notif-triggers">
-                {TRIGGERS.map((t) => (
-                  <label key={t.key} aria-label={`${f.athlete_name} ${t.label}`}>
-                    <input
-                      type="checkbox"
-                      checked={f.notify_prefs[t.key]}
-                      disabled={!emailEnabled}
-                      onChange={() => toggleTrigger(f.athlete_slug, f.gender, f.notify_prefs, t.key)}
-                    />
-                    {t.label}
-                  </label>
-                ))}
+        <div className="notif-grid">
+          <div className="notif-ghead">
+            <span className="notif-corner" aria-hidden="true" />
+            {TRIGGERS.map((t) => (
+              <span key={t.key} className="notif-col">
+                {t.header ?? t.label}
               </span>
-            </li>
+            ))}
+            <span className="notif-rule" aria-hidden="true" />
+          </div>
+          {favorites.map((f) => (
+            <div key={f.id} className={`notif-grow ${f.gender}`}>
+              <span className="notif-name">{f.athlete_name}</span>
+              {TRIGGERS.map((t) => (
+                <span key={t.key} className="notif-cell">
+                  <input
+                    className="notif-check"
+                    type="checkbox"
+                    aria-label={`${f.athlete_name} — ${t.label}`}
+                    checked={f.notify_prefs[t.key]}
+                    disabled={!emailEnabled}
+                    onChange={() => toggleTrigger(f.athlete_slug, f.gender, f.notify_prefs, t.key)}
+                  />
+                </span>
+              ))}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
       {message && <p className="lookup-msg">{message}</p>}
     </section>

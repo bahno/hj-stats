@@ -1498,35 +1498,110 @@ h2 {
 .notif-master {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   cursor: pointer;
+  font-size: 0.92rem;
 }
-.notif-list {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.notif-row {
-  display: flex;
-  flex-wrap: wrap;
+
+/* Per-athlete trigger grid: one header row of column labels over a checkbox
+   per favorite. Each athlete's checked boxes take their gender colour. */
+.notif-grid {
+  margin-top: 16px;
+  display: grid;
+  /* Name flexes; the four trigger columns are a fixed, equal width. */
+  grid-template-columns: minmax(0, 1fr) repeat(4, 3rem);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  column-gap: 4px;
 }
-.notif-triggers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.notif-ghead,
+.notif-grow {
+  display: contents;
 }
-.notif-triggers label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85rem;
+.notif-grow.men {
+  --check: var(--men);
+}
+.notif-grow.women {
+  --check: var(--women);
+}
+.notif-corner,
+.notif-col {
+  padding-bottom: 9px;
+}
+.notif-col {
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+/* One continuous hairline under the whole header row (spanning every column and
+   the gaps between), instead of ragged per-cell underlines. */
+.notif-rule {
+  grid-column: 1 / -1;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+.notif-name {
+  min-width: 0;
+  padding: 9px 10px 9px 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-cell {
+  display: flex;
+  justify-content: center;
+  padding: 7px 0;
+}
+
+/* Themed checkbox shared by the master toggle and the trigger grid. */
+.notif-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.notif-check::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  margin-top: -1px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.12s ease;
+}
+.notif-check:checked {
+  background: var(--check, var(--accent));
+  border-color: var(--check, var(--accent));
+}
+.notif-check:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+.notif-check:hover:not(:disabled) {
+  border-color: var(--check, var(--accent));
+}
+.notif-check:focus-visible {
+  outline: 2px solid var(--check, var(--accent));
+  outline-offset: 2px;
+}
+.notif-check:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* --- Account control (top-right corner) --- */
