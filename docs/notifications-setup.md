@@ -50,6 +50,13 @@ idempotency guards — it only logs a preview of what it *would* send to the fun
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
+- **Delivery reliability (v1 limitation):** the per-athlete snapshot and the per-user
+  `last_*` guards advance on each run independently of whether the email actually sent.
+  If a send fails (e.g. a Resend outage), that run's new results/ranking changes have
+  already been folded into the snapshot and will NOT be re-sent on a later run — that
+  digest is dropped. Transient failures surface as `status='error'` rows in
+  `notification_deliveries`. A future version would decouple per-user delivery from the
+  global snapshot (a per-user outbox / last-seen) to make delivery at-least-once.
 - Qualification tracks the Road to Birmingham 2026 (European Championships) qualifying
   system; it fires when an athlete enters or drops out of the quota. If the road-to
   endpoint is unavailable on a run, qualification is skipped for that run (results and

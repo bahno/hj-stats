@@ -90,7 +90,10 @@ actual publish day, and collapses the schedule to a single job. On days with no 
 - **`favorites.notify_prefs jsonb`** — new column, default
   `'{"place":true,"score":true,"result":true,"qualification":true}'::jsonb`.
   Per-athlete per-trigger control co-located with the favorite. Existing RLS owner
-  policies already cover it. Backfill existing rows with the default.
+  policies cover select/insert/delete but NOT update — the migration must add an
+  `"own favorites - update"` policy (`for update using (auth.uid() = user_id)`) or
+  `notify_prefs` edits silently update 0 rows under RLS. Backfill existing rows with
+  the default.
 
 - **`ranking_snapshots`** (service-role only; RLS enabled, no anon/auth policies)
   - `athlete_slug text`, `gender text`, primary key `(athlete_slug, gender)`
