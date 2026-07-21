@@ -11,10 +11,12 @@ import {
   filterByPrefs,
   buildResultsDigest,
   buildRankingDigest,
+  seasonBest,
   type AthleteEvents,
   type Snapshot,
   type NotifyPrefs,
   type Gender,
+  type Standing,
 } from '../_shared/detectors.ts';
 import { EmailChannel, appendUnsubscribe } from '../_shared/dispatch.ts';
 
@@ -48,7 +50,7 @@ Deno.serve(async (req) => {
   const userIds = optedIn.map((s) => s.user_id);
   const { data: favRows, error: favoritesError } = await admin
     .from('favorites')
-    .select('user_id, athlete_slug, athlete_name, gender, notify_prefs')
+    .select('user_id, athlete_slug, athlete_name, gender, notify_prefs, intro_sent')
     .in('user_id', userIds);
   if (favoritesError) {
     console.error('favorites query failed:', favoritesError);
@@ -81,6 +83,8 @@ Deno.serve(async (req) => {
   }
 
   const athleteEvents = new Map<Key, AthleteEvents>();
+  const standingByKey = new Map<Key, Standing>();
+  const rankAdvancedByKey = new Map<Key, boolean>();
   let rankingWeek: string | null = null;
 
   for (const [k, a] of distinct) {
@@ -105,6 +109,17 @@ Deno.serve(async (req) => {
       };
       const firstRun = snapRow == null;
       const rankAdvanced = snap.rank_date != null && state.rankDate !== snap.rank_date;
+
+      rankAdvancedByKey.set(k, rankAdvanced);
+      standingByKey.set(k, {
+        europeanPlace: state.europeanPlace,
+        worldPlace: state.worldPlace,
+        score: state.rankingScore,
+        qualified: state.qualification?.qualified ?? null,
+        qualPlace: state.qualification?.place ?? null,
+        qualTarget: state.qualification?.target ?? null,
+        seasonBest: seasonBest(state.results),
+      });
 
       athleteEvents.set(k, {
         slug: a.slug,
@@ -148,9 +163,21 @@ Deno.serve(async (req) => {
 
     const myFavs = favorites.filter((f) => f.user_id === s.user_id);
     const events: AthleteEvents[] = [];
+    const introFavs: typeof myFavs = [];
     for (const f of myFavs) {
-      const ev = athleteEvents.get(key(f.athlete_slug, f.gender));
-      if (ev) events.push(filterByPrefs(ev, f.notify_prefs as NotifyPrefs));
+      const k2 = key(f.athlete_slug, f.gender);
+      const ev = athleteEvents.get(k2);
+      if (!ev) continue;
+      const ue = filterByPrefs(ev, f.notify_prefs as NotifyPrefs);
+      // One-time résumé on the first ranking update after this favorite was starred.
+      if (!f.intro_sent && rankAdvancedByKey.get(k2)) {
+        const standing = standingByKey.get(k2);
+        if (standing) {
+          ue.intro = standing;
+          introFavs.push(f);
+        }
+      }
+      events.push(ue);
     }
 
     // Daily results digest — idempotent per (user, 'results', today).
@@ -180,6 +207,18 @@ Deno.serve(async (req) => {
         }, dry);
         if (!dry) {
           await admin.from('notification_settings').update({ last_ranking_week: rankingWeek }).eq('user_id', s.user_id);
+        }
+        // Mark the résumé sent only when the digest actually delivered, so a
+        // skipped/failed send retries the résumé on the next cycle.
+        if (result === 'sent') {
+          for (const f of introFavs) {
+            await admin
+              .from('favorites')
+              .update({ intro_sent: true })
+              .eq('user_id', f.user_id)
+              .eq('athlete_slug', f.athlete_slug)
+              .eq('gender', f.gender);
+          }
         }
         if (result === 'sent' || result === 'dry') sent++;
       }

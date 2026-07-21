@@ -7,9 +7,11 @@ import {
   filterByPrefs,
   buildResultsDigest,
   buildRankingDigest,
+  seasonBest,
   type Snapshot,
   type RankingState,
   type AthleteEvents,
+  type Standing,
 } from './detectors';
 
 const emptySnap: Snapshot = {
@@ -141,5 +143,67 @@ describe('digest builders', () => {
     expect(out).not.toBeNull();
     expect(out!.text).toContain('European');
     expect(out!.text).toContain('3');
+  });
+});
+
+describe('seasonBest', () => {
+  it('returns the highest mark as its original string', () => {
+    const out = seasonBest([
+      { date: '2026-06-01', competition: 'A', mark: '2.28' },
+      { date: '2026-07-01', competition: 'B', mark: '2.31' },
+      { date: '2026-07-10', competition: 'C', mark: '2.05' },
+    ]);
+    expect(out).toBe('2.31');
+  });
+  it('skips non-numeric marks and returns null for none', () => {
+    expect(seasonBest([{ date: 'd', competition: 'c', mark: 'NM' }])).toBeNull();
+    expect(seasonBest([])).toBeNull();
+  });
+});
+
+describe('buildRankingDigest résumé (intro)', () => {
+  const standing: Standing = {
+    europeanPlace: 2,
+    worldPlace: 4,
+    score: 1435,
+    qualified: true,
+    qualPlace: 12,
+    qualTarget: 32,
+    seasonBest: '2.05',
+  };
+  const base: AthleteEvents = {
+    slug: 's',
+    name: 'Yaroslava Mahuchikh',
+    gender: 'women',
+    results: [],
+    place: [],
+    score: null,
+    qualification: null,
+  };
+
+  it('renders the standing résumé even with no changes', () => {
+    const out = buildRankingDigest('Sam', [{ ...base, intro: standing }]);
+    expect(out).not.toBeNull();
+    expect(out!.text).toContain('now following');
+    expect(out!.text).toContain('European #2');
+    expect(out!.text).toContain('World #4');
+    expect(out!.text).toContain('inside the quota (12 of 32)');
+    expect(out!.text).toContain('season best 2.05');
+    expect(out!.html).toContain('Yaroslava Mahuchikh');
+  });
+
+  it('intro takes precedence over deltas for the same athlete', () => {
+    const out = buildRankingDigest('Sam', [
+      { ...base, intro: standing, place: [{ scope: 'european', from: 5, to: 2, direction: 'up' }] },
+    ]);
+    expect(out!.text).toContain('now following');
+    expect(out!.text).not.toContain('→'); // the delta line is suppressed
+  });
+
+  it('shows "outside the quota" when not qualified', () => {
+    const out = buildRankingDigest('Sam', [
+      { ...base, intro: { ...standing, qualified: false, qualPlace: null } },
+    ]);
+    expect(out!.text).toContain('outside the quota');
   });
 });

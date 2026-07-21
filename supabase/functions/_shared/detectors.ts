@@ -60,6 +60,18 @@ export interface QualChange {
   target: number | null;
 }
 
+/** A one-time "here's where they stand" snapshot, sent the first time a newly
+ *  followed athlete's ranking updates (then future updates are change-only). */
+export interface Standing {
+  europeanPlace: number | null;
+  worldPlace: number | null;
+  score: number | null;
+  qualified: boolean | null;
+  qualPlace: number | null;
+  qualTarget: number | null;
+  seasonBest: string | null;
+}
+
 export interface AthleteEvents {
   slug: string;
   name: string;
@@ -68,6 +80,9 @@ export interface AthleteEvents {
   place: PlaceChange[];
   score: ScoreChange | null;
   qualification: QualChange | null;
+  /** When set, the ranking digest renders this résumé for the athlete instead
+   *  of their deltas (the one-time intro on first follow). */
+  intro?: Standing | null;
 }
 
 export interface EmailPayload {
@@ -83,6 +98,21 @@ export function resultKey(r: ResultItem): string {
 export function diffResults(prev: ResultItem[], curr: ResultItem[]): ResultItem[] {
   const seen = new Set(prev.map(resultKey));
   return curr.filter((r) => !seen.has(resultKey(r)));
+}
+
+/** Highest jump among a result list (marks like "2.30"), as the original mark
+ *  string. null when there are no numeric marks. */
+export function seasonBest(results: ResultItem[]): string | null {
+  let best = -Infinity;
+  let bestMark: string | null = null;
+  for (const r of results) {
+    const n = parseFloat(r.mark);
+    if (!Number.isNaN(n) && n > best) {
+      best = n;
+      bestMark = r.mark;
+    }
+  }
+  return bestMark;
 }
 
 function placeChange(
@@ -134,6 +164,19 @@ function esc(s: string): string {
 
 const CAP: Record<'world' | 'european', string> = { world: 'World', european: 'European' };
 
+function renderStanding(s: Standing): string {
+  const eu = s.europeanPlace ?? '—';
+  const w = s.worldPlace ?? '—';
+  const score = s.score ?? '—';
+  const qual =
+    s.qualified === true
+      ? `, inside the quota (${s.qualPlace ?? '—'} of ${s.qualTarget ?? '—'})`
+      : s.qualified === false
+        ? ', outside the quota'
+        : '';
+  return `now following — European #${eu}, World #${w}, score ${score}${qual}; season best ${s.seasonBest ?? '—'}`;
+}
+
 export function buildResultsDigest(userName: string, events: AthleteEvents[]): EmailPayload | null {
   const withResults = events.filter((e) => e.results.length > 0);
   if (withResults.length === 0) return null;
@@ -158,6 +201,13 @@ export function buildRankingDigest(userName: string, events: AthleteEvents[]): E
   const htmlItems: string[] = [];
 
   for (const e of events) {
+    // One-time résumé takes precedence over deltas for a newly followed athlete.
+    if (e.intro) {
+      const summary = renderStanding(e.intro);
+      lines.push(`- ${e.name}: ${summary}`);
+      htmlItems.push(`<li><strong>${esc(e.name)}</strong>: ${esc(summary)}</li>`);
+      continue;
+    }
     const parts: string[] = [];
     for (const p of e.place) {
       parts.push(`${CAP[p.scope]} rank ${p.from} → ${p.to} (${p.direction})`);
@@ -174,5 +224,6 @@ export function buildRankingDigest(userName: string, events: AthleteEvents[]): E
   if (lines.length === 0) return null;
   const text = `Hi ${userName},\n\nRanking updates for athletes you follow:\n\n${lines.join('\n')}`;
   const html = `<p>Hi ${esc(userName)},</p><p>Ranking updates for athletes you follow:</p><ul>${htmlItems.join('')}</ul>`;
-  return { subject: `Ranking update: ${lines.length} of your athletes moved`, html, text };
+  const noun = lines.length === 1 ? 'athlete' : 'athletes';
+  return { subject: `Ranking update: ${lines.length} ${noun}`, html, text };
 }
