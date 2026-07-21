@@ -43,8 +43,10 @@ select cron.schedule(
 curl "https://<project-ref>.functions.supabase.co/notify-poll?dry=1" \
   -H "Authorization: Bearer <service-role-key>"
 ```
-Expect `{ ok: true, ... , dry: true }` and `status='dry'` rows in
-`notification_deliveries`, with no emails sent. Remove `?dry=1` to send for real.
+Expect `{ ok: true, ... , dry: true }`. A dry run has **no side effects**: it sends no
+emails, writes no `notification_deliveries` rows, and does not touch the per-user
+idempotency guards — it only logs a preview of what it *would* send to the function logs
+(view with `supabase functions logs notify-poll`). Remove `?dry=1` to send for real.
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
