@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Calculator } from './components/Calculator';
 import { AthleteLookup } from './components/AthleteLookup';
 import { Nav, type View } from './components/Nav';
+import { Logo } from './components/Logo';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { AccountPage } from './auth/AccountPage';
@@ -67,6 +68,9 @@ function Shell() {
 
   return (
     <main className="app">
+      <div className="brand-corner">
+        <Logo />
+      </div>
       <div className="account-corner">
         <AccountSlot
           active={view === 'account'}

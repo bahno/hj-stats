@@ -1611,6 +1611,24 @@ h2 {
   right: 16px;
   z-index: 5;
 }
+
+/* Brand mark, mirroring .account-corner on the left. Matching the account
+   button's 38px box keeps the two optically centred on the same line. */
+.brand-corner {
+  position: absolute;
+  top: 20px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  height: 38px;
+}
+
+.brand-mark {
+  display: block;
+  width: 30px;
+  height: auto;
+}
 /* Circular user-icon button. Muted when signed out, accented when signed in. */
 .account-icon-btn {
   display: inline-flex;
