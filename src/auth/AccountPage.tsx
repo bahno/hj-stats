@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { getProfile, updateProfile } from '../data/userData';
 import { usePreferences } from '../hooks/usePreferences';
 import { GenderToggle } from '../components/inputs/GenderToggle';
+import { NotificationSettings } from '../components/NotificationSettings';
 import { supabase } from '../lib/supabase';
 
 export function AccountPage() {
@@ -103,6 +104,8 @@ export function AccountPage() {
       </label>
 
       {message && <p className="lookup-msg">{message}</p>}
+
+      <NotificationSettings />
 
       <div className="account-actions">
         <button type="button" className="btn-inline" onClick={() => signOut()}>

@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
+  getNotificationSettings: vi.fn(),
+  updateNotificationSettings: vi.fn(),
 }));
 vi.mock('./AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', email: 'a@b.com' }, signOut: mocks.signOut }),
@@ -12,6 +14,11 @@ vi.mock('./AuthContext', () => ({
 vi.mock('../data/userData', () => ({
   getProfile: mocks.getProfile,
   updateProfile: mocks.updateProfile,
+  getNotificationSettings: mocks.getNotificationSettings,
+  updateNotificationSettings: mocks.updateNotificationSettings,
+}));
+vi.mock('../hooks/FavoritesContext', () => ({
+  useFavorites: () => ({ favorites: [], updatePrefs: vi.fn() }),
 }));
 vi.mock('../lib/supabase', () => ({ supabase: { auth: {}, functions: {} } }));
 
@@ -23,6 +30,10 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ id: 'u1', display_name: 'Gia', default_gender: 'men' });
   mocks.updateProfile.mockReset().mockResolvedValue(undefined);
+  mocks.getNotificationSettings
+    .mockReset()
+    .mockResolvedValue({ email_enabled: false, unsubscribe_token: 't' });
+  mocks.updateNotificationSettings.mockReset().mockResolvedValue(undefined);
 });
 
 test('shows the account email', async () => {

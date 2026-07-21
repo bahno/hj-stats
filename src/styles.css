@@ -1490,6 +1490,45 @@ h2 {
   border-top: 1px solid var(--line);
 }
 
+/* Master email toggle + per-favorite trigger checkboxes on the Account page. */
+.notif-settings {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.notif-master {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.notif-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notif-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.notif-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.notif-triggers label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 /* --- Account control (top-right corner) --- */
 .account-corner {
   position: absolute;
