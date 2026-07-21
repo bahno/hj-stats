@@ -29,3 +29,22 @@ export interface Category {
   code: CategoryCode;
   name: string;
 }
+
+export type NotifyPrefs = {
+  place: boolean;
+  score: boolean;
+  result: boolean;
+  qualification: boolean;
+};
+
+export const DEFAULT_NOTIFY_PREFS: NotifyPrefs = {
+  place: true,
+  score: true,
+  result: true,
+  qualification: true,
+};
+
+export interface NotificationSettings {
+  email_enabled: boolean;
+  unsubscribe_token: string;
+}
