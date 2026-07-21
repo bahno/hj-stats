@@ -14,6 +14,11 @@ alter table public.favorites
   add column notify_prefs jsonb not null
   default '{"place":true,"score":true,"result":true,"qualification":true}'::jsonb;
 
+-- 0001_init.sql enabled RLS on favorites with select/insert/delete policies only;
+-- add the missing update policy so notify_prefs edits actually persist.
+create policy "own favorites - update" on public.favorites
+  for update using (auth.uid() = user_id);
+
 -- Latest known ranking state per athlete (global; shared across users).
 create table public.ranking_snapshots (
   athlete_slug text not null,

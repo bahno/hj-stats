@@ -47,6 +47,40 @@ describe('notification settings data layer', () => {
     ).rejects.toThrow();
   });
 
+  it('updateFavoriteNotifyPrefs resolves when the update affects a row', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: [{ id: 'f1' }],
+        error: null,
+      }),
+    });
+    await expect(
+      updateFavoriteNotifyPrefs('u1', 'slug', 'men', {
+        place: true,
+        score: false,
+        result: true,
+        qualification: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('updateFavoriteNotifyPrefs throws when the update affects no rows (RLS blocked)', async () => {
+    (supa as { supabase: unknown }).supabase = mockSupabase({
+      from: () => ({
+        data: [],
+        error: null,
+      }),
+    });
+    await expect(
+      updateFavoriteNotifyPrefs('u1', 'slug', 'men', {
+        place: true,
+        score: false,
+        result: true,
+        qualification: true,
+      }),
+    ).rejects.toThrow('Favorite not found or not updatable');
+  });
+
   it('listFavorites returns notify_prefs from the row', async () => {
     (supa as { supabase: unknown }).supabase = mockSupabase({
       from: () => ({

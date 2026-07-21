@@ -112,13 +112,17 @@ export async function updateFavoriteNotifyPrefs(
   prefs: NotifyPrefs,
 ): Promise<void> {
   if (!supabase) throw new Error('Auth is not configured');
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('favorites')
     .update({ notify_prefs: prefs })
     .eq('user_id', userId)
     .eq('athlete_slug', slug)
-    .eq('gender', gender);
+    .eq('gender', gender)
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Favorite not found or not updatable');
+  }
 }
 
 export { DEFAULT_NOTIFY_PREFS } from './types';
