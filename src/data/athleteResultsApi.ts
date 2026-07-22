@@ -9,6 +9,8 @@
  * CORS is open to any origin (verified 2026-07-14). Schema/host/key can change without
  * notice — callers must handle failure gracefully.
  */
+import { HttpError, withRetry } from './retry';
+
 const WA_GRAPHQL = 'https://graphql-prod-4877.edge.aws.worldathletics.org/graphql';
 const WA_API_KEY = 'da2-tzmostylynabpfkrgbmmml4toq';
 
@@ -61,21 +63,39 @@ export function athleteIdFromSlug(urlSlug: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Without a cap, a hung response leaves the result table spinning forever. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function fetchResultsForYear(athleteId: number, year: number): Promise<AthleteResult[]> {
-  const res = await fetch(WA_GRAPHQL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': WA_API_KEY },
-    body: JSON.stringify({
-      operationName: 'GetSingleCompetitorResultsDate',
-      query: RESULTS_BY_YEAR_QUERY,
-      variables: { id: athleteId, resultsByYear: year, resultsByYearOrderBy: 'date' },
-    }),
-  });
-  if (!res.ok) throw new Error(`getSingleCompetitorResultsDate: HTTP ${res.status}`);
-  const body = await res.json();
-  if (body?.errors?.length) throw new Error(body.errors[0]?.message ?? 'results query error');
-  const data = (body.data as ResultsByDateResponse | undefined)?.getSingleCompetitorResultsDate;
-  return data?.resultsByDate ?? [];
+  try {
+    return await withRetry(async () => {
+      const res = await fetch(WA_GRAPHQL, {
+        method: 'POST',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: { 'content-type': 'application/json', 'x-api-key': WA_API_KEY },
+        body: JSON.stringify({
+          operationName: 'GetSingleCompetitorResultsDate',
+          query: RESULTS_BY_YEAR_QUERY,
+          variables: { id: athleteId, resultsByYear: year, resultsByYearOrderBy: 'date' },
+        }),
+      });
+      if (!res.ok) {
+        throw new HttpError(res.status, `getSingleCompetitorResultsDate: HTTP ${res.status}`);
+      }
+      const body = await res.json();
+      // GraphQL answered with an error — the server is up, so don't retry.
+      if (body?.errors?.length) {
+        throw new HttpError(400, body.errors[0]?.message ?? 'results query error');
+      }
+      const data = (body.data as ResultsByDateResponse | undefined)?.getSingleCompetitorResultsDate;
+      return data?.resultsByDate ?? [];
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'TimeoutError') {
+      throw new Error("getSingleCompetitorResultsDate: the results service didn't respond in time");
+    }
+    throw e;
+  }
 }
 
 /**

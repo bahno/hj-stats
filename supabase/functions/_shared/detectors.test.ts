@@ -133,6 +133,19 @@ describe('digest builders', () => {
     expect(out!.text).toContain('2.30');
     expect(out!.html).toContain('Ada Jumper');
   });
+  it('escapes quotes as well as angle brackets in the HTML body', () => {
+    const out = buildResultsDigest('Sam', [
+      {
+        ...withResults,
+        name: `A"B'C<D>&E`,
+        results: [{ date: '2026-07-12', competition: '<script>x</script>', mark: '2.30' }],
+      },
+    ]);
+    expect(out!.html).toContain('A&quot;B&#39;C&lt;D&gt;&amp;E');
+    expect(out!.html).not.toContain('<script>');
+    // The plain-text part is not markup and stays verbatim.
+    expect(out!.text).toContain(`A"B'C<D>&E`);
+  });
   it('buildRankingDigest returns null when no ranking changes', () => {
     expect(buildRankingDigest('Sam', [withResults])).toBeNull();
   });

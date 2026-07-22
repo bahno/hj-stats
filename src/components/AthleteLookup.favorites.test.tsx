@@ -5,6 +5,7 @@ import type { RankingRow, RankingCalculation } from '../data/rankingApi';
 const mocks = vi.hoisted(() => ({
   user: { current: { id: 'u1' } as { id: string } | null },
   favorites: { current: [] as any[] },
+  toggle: vi.fn(),
 }));
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ user: mocks.user.current }),
@@ -13,7 +14,7 @@ vi.mock('../hooks/FavoritesContext', () => ({
   useFavorites: () => ({
     favorites: mocks.favorites.current,
     isFavorite: () => false,
-    toggle: vi.fn(() => Promise.resolve()),
+    toggle: mocks.toggle,
     loading: false,
   }),
 }));
@@ -51,6 +52,7 @@ beforeEach(() => {
   vi.mocked(fetchHighJumpRanking).mockReset();
   vi.mocked(fetchRankingCalculation).mockReset();
   vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '', rows: [] });
+  mocks.toggle.mockReset().mockResolvedValue(undefined);
 });
 
 test('shows a favorites strip for signed-in users', async () => {
@@ -159,4 +161,58 @@ test('switching gender clears the selected favorite name and result', async () =
 
   expect((screen.getByPlaceholderText('e.g. Tamberi') as HTMLInputElement).value).toBe('');
   expect(screen.queryByText('Gianmarco Tamberi', { selector: '.lookup-name' })).toBeNull();
+});
+
+test('surfaces the 50-favorite cap instead of failing silently', async () => {
+  // The cap is a database trigger, so the client only learns about it from the
+  // error it raises — the star must say so rather than quietly doing nothing.
+  mocks.toggle.mockRejectedValue(new Error('favorite limit reached (50)'));
+  const row: RankingRow = {
+    id: 42,
+    place: 1,
+    worldPlace: 3,
+    athlete: 'Gianmarco Tamberi',
+    athleteUrlSlug: 'tamberi',
+    nationality: 'ITA',
+    rankingScore: 1400,
+    previousPlace: 2,
+    previousRankingScore: 1380,
+  };
+  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
+
+  render(<AthleteLookup />);
+  fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), { target: { value: 'Tamberi' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Get ranking' }));
+
+  const [star] = await screen.findAllByRole('button', { name: 'Add favorite' });
+  fireEvent.click(star);
+
+  expect(await screen.findByText(/50-favorite limit/i)).toBeInTheDocument();
+});
+
+test('prompts unauthenticated users to sign in when starring', async () => {
+  mocks.user.current = null;
+  mocks.favorites.current = [];
+  const row: RankingRow = {
+    id: 42,
+    place: 1,
+    worldPlace: 3,
+    athlete: 'Gianmarco Tamberi',
+    athleteUrlSlug: 'tamberi',
+    nationality: 'ITA',
+    rankingScore: 1400,
+    previousPlace: 2,
+    previousRankingScore: 1380,
+  };
+  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
+
+  render(<AthleteLookup />);
+  fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), { target: { value: 'Tamberi' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Get ranking' }));
+
+  const [star] = await screen.findAllByRole('button', { name: 'Add favorite' });
+  fireEvent.click(star);
+
+  expect(await screen.findByText('Sign in to save favorites.')).toBeInTheDocument();
+  expect(mocks.toggle).not.toHaveBeenCalled();
 });

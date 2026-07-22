@@ -4,15 +4,33 @@
  * 2026-07-07. Schemas/host can change without notice — callers should handle
  * failure gracefully.
  */
+import { HttpError, withRetry } from './retry';
+
 const EA_TRPC = 'https://api.european-athletics.com/trpc';
+
+/** Without a cap, a hung response leaves the UI on "Searching…" indefinitely. */
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export async function trpc<T>(proc: string, input: unknown): Promise<T> {
   const query = encodeURIComponent(JSON.stringify({ json: input }));
-  const res = await fetch(`${EA_TRPC}/${proc}?input=${query}`);
-  if (!res.ok) throw new Error(`${proc}: HTTP ${res.status}`);
-  const body = await res.json();
-  if (body?.error) throw new Error(body.error?.json?.message ?? `${proc} error`);
-  return body.result.data.json as T;
+  try {
+    return await withRetry(async () => {
+      const res = await fetch(`${EA_TRPC}/${proc}?input=${query}`, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new HttpError(res.status, `${proc}: HTTP ${res.status}`);
+      const body = await res.json();
+      // A tRPC-level error is the server answering, not failing — don't retry it.
+      if (body?.error) throw new HttpError(400, body.error?.json?.message ?? `${proc} error`);
+      return body.result.data.json as T;
+    });
+  } catch (e) {
+    // A bare "signal is aborted without reason" tells the user nothing.
+    if (e instanceof DOMException && e.name === 'TimeoutError') {
+      throw new Error(`${proc}: the ranking service didn't respond in time`);
+    }
+    throw e;
+  }
 }
 
 export type Gender = 'men' | 'women';

@@ -21,15 +21,11 @@ test('getProfile returns null in auth-disabled mode', async () => {
 test('getProfile returns the row', async () => {
   holder.current = mockSupabase({
     from: () => ({
-      data: { id: 'u1', display_name: 'Gia', default_gender: 'men' },
+      data: { id: 'u1', default_gender: 'men' },
       error: null,
     }),
   });
-  expect(await getProfile('u1')).toEqual({
-    id: 'u1',
-    display_name: 'Gia',
-    default_gender: 'men',
-  });
+  expect(await getProfile('u1')).toEqual({ id: 'u1', default_gender: 'men' });
 });
 
 test('listFavorites returns [] when data is null', async () => {

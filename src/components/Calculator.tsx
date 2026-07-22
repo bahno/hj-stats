@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CategoryCode, Gender } from '../data/types';
 import { categories, placingPoints, scoringTable } from '../engine/data';
 import { availableMarks, defaultHeightFor } from '../engine/marks';
@@ -14,11 +14,16 @@ export function Calculator() {
   const [category, setCategory] = useState<CategoryCode>('C');
   const [position, setPosition] = useState(1);
   const [height, setHeight] = useState(() => defaultHeightFor(scoringTable, 'men'));
+  const [saveError, setSaveError] = useState('');
 
   const { defaultGender, setDefaultGender } = usePreferences();
 
-  // Adopt the saved preference once it loads (only if the user hasn't overridden).
+  // Adopt the saved preference once it loads — but only until the user picks a
+  // gender themselves. Without this latch, a failed save rolls `defaultGender`
+  // back, the effect re-fires, and the toggle silently jumps under the user.
+  const userChose = useRef(false);
   useEffect(() => {
+    if (userChose.current) return;
     if (defaultGender && defaultGender !== gender) {
       setGender(defaultGender);
       setHeight(defaultHeightFor(scoringTable, defaultGender));
@@ -32,9 +37,15 @@ export function Calculator() {
     : defaultHeightFor(scoringTable, gender);
 
   function handleGender(next: Gender) {
+    userChose.current = true;
     setGender(next);
     setHeight(defaultHeightFor(scoringTable, next));
-    void setDefaultGender(next).catch(() => {});
+    setSaveError('');
+    // The calculator keeps working either way — but say so rather than letting
+    // the preference silently fail to persist.
+    void setDefaultGender(next).catch(() =>
+      setSaveError("Couldn't save this as your default gender."),
+    );
   }
 
   const score = resultScore(
@@ -49,6 +60,7 @@ export function Calculator() {
         <CategorySelect categories={categories} value={category} onChange={setCategory} />
         <PositionSelect value={position} onChange={setPosition} />
       </div>
+      {saveError && <p className="lookup-msg">{saveError}</p>}
       <div className="result">
         <div className="score-label">Ranking Score</div>
         <div className="crossbar" key={score.total}>

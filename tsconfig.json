@@ -8,6 +8,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // The edge functions run under Deno, which requires explicit .ts extensions
+    // on relative imports. Safe here because this project never emits via tsc
+    // (noEmit below; Vite does the building).
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
@@ -15,6 +19,9 @@
     "noUnusedParameters": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src"],
+  // The edge functions' _shared modules are plain TypeScript (no Deno globals,
+  // no URL imports) and are unit-tested with vitest, so typecheck them here.
+  // The function entrypoints themselves can only be checked by `deno check`.
+  "include": ["src", "supabase/functions/_shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

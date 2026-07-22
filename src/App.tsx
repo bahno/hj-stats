@@ -6,6 +6,7 @@ import { Logo } from './components/Logo';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { AccountPage } from './auth/AccountPage';
+import { PasswordRecovery } from './auth/PasswordRecovery';
 import { isAuthEnabled } from './lib/supabase';
 import { FavoritesProvider } from './hooks/FavoritesContext';
 
@@ -56,29 +57,38 @@ function AccountSlot({
 function Shell() {
   const [view, setView] = useState<View>('calculator');
   const [showAuth, setShowAuth] = useState(false);
+  const { recovering } = useAuth();
 
-  const body =
-    view === 'calculator' ? (
-      <Calculator />
-    ) : view === 'rankings' ? (
-      <AthleteLookup />
-    ) : (
-      <AccountPage />
-    );
+  const body = recovering ? (
+    <PasswordRecovery />
+  ) : view === 'calculator' ? (
+    <Calculator />
+  ) : view === 'rankings' ? (
+    <AthleteLookup />
+  ) : (
+    <AccountPage />
+  );
 
   return (
     <main className="app">
       <div className="brand-corner">
         <Logo />
       </div>
-      <div className="account-corner">
-        <AccountSlot
-          active={view === 'account'}
-          onOpenAccount={() => setView('account')}
-          onSignIn={() => setShowAuth(true)}
-        />
-      </div>
-      <Nav value={view} onChange={setView} />
+      {/* During password recovery the only thing on offer is setting the new
+          password — navigating away would strand the user in a session whose
+          password they don't know. */}
+      {!recovering && (
+        <>
+          <div className="account-corner">
+            <AccountSlot
+              active={view === 'account'}
+              onOpenAccount={() => setView('account')}
+              onSignIn={() => setShowAuth(true)}
+            />
+          </div>
+          <Nav value={view} onChange={setView} />
+        </>
+      )}
       {body}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </main>

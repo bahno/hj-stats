@@ -28,7 +28,9 @@ export function usePreferences() {
     return () => {
       active = false;
     };
-  }, [user]);
+    // Keyed on the id, not the user object: an identity-only change to the auth
+    // value must not re-trigger a fetch that clobbers an optimistic update.
+  }, [user?.id]);
 
   const setDefaultGender = useCallback(
     async (g: Gender) => {

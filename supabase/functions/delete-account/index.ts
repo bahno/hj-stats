@@ -1,14 +1,33 @@
 // Supabase Edge Function (Deno). Deletes the authenticated user's auth record,
 // which cascades to their profiles/favorites rows. Requires the caller's JWT.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// Pinned exactly: an unpinned @2 lets a dependency change ship to production
+// without any commit here. Bump deliberately, alongside the npm dependency.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
+
+// Only the app's own origins may call this. ALLOWED_ORIGINS is a comma-separated
+// list (set it with `supabase secrets set ALLOWED_ORIGINS=...`); it falls back to
+// the GitHub Pages deployment plus the local dev server.
+const ALLOWED_ORIGINS = (
+  Deno.env.get('ALLOWED_ORIGINS') ?? 'https://bahno.github.io,http://localhost:5173'
+)
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+    // Echo only a known origin — never a wildcard, and never the caller's own value.
+    ...(ALLOWED_ORIGINS.includes(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    Vary: 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 Deno.serve(async (req) => {
+  const cors = corsFor(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   const authHeader = req.headers.get('Authorization') ?? '';

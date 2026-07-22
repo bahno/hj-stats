@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   type Gender,
   type RankingType,
@@ -170,33 +170,47 @@ export function AthleteLookup() {
   const [found, setFound] = useState<Found | null>(null);
   const { user } = useAuth();
   const { favorites } = useFavorites();
-  const [needSignIn, setNeedSignIn] = useState(false);
+  // One slot for anything the star button needs to say: not signed in, at the
+  // favorites cap, or a save that failed. Silently doing nothing is worse.
+  const [favNotice, setFavNotice] = useState('');
   const { defaultGender } = usePreferences();
+  // Every lookup takes a ticket; only the newest one is allowed to write state.
+  // Without this, two quick searches race and the slower response wins, showing
+  // one athlete's data under another's name.
+  const requestId = useRef(0);
   useEffect(() => {
     if (defaultGender) setGender(defaultGender);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultGender]);
 
   // Ranking lists are cached per gender so repeated searches don't refetch.
-  const [cache] = useState(() => new Map<Gender, { rankDate: string; rows: RankingRow[] }>());
-  const [roadCache] = useState(() => new Map<Gender, RoadToBirminghamData>());
+  // The TTL keeps a long-lived tab from showing last week's ranking forever.
+  const CACHE_TTL_MS = 15 * 60 * 1000;
+  const [cache] = useState(
+    () => new Map<Gender, { at: number; data: { rankDate: string; rows: RankingRow[] } }>(),
+  );
+  const [roadCache] = useState(() => new Map<Gender, { at: number; data: RoadToBirminghamData }>());
+
+  function fresh<T>(entry: { at: number; data: T } | undefined): T | null {
+    return entry && Date.now() - entry.at < CACHE_TTL_MS ? entry.data : null;
+  }
 
   async function ranking(g: Gender) {
-    const hit = cache.get(g);
+    const hit = fresh(cache.get(g));
     if (hit) return hit;
     const data = await fetchHighJumpRanking(g);
-    cache.set(g, data);
+    cache.set(g, { at: Date.now(), data });
     return data;
   }
 
   // Road to Birmingham is undocumented and can fail/change shape independently of the
   // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
   async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
-    const hit = roadCache.get(g);
+    const hit = fresh(roadCache.get(g));
     if (hit) return hit;
     try {
       const data = await fetchRoadToBirmingham(g);
-      roadCache.set(g, data);
+      roadCache.set(g, { at: Date.now(), data });
       return data;
     } catch (e) {
       console.warn('Road to Birmingham fetch failed', e);
@@ -204,7 +218,15 @@ export function AthleteLookup() {
     }
   }
 
-  async function select(hit: Hit, g: Gender) {
+  /** Claim the newest ticket; state writes are then gated on still holding it. */
+  function nextTicket(): number {
+    return ++requestId.current;
+  }
+  function isCurrent(ticket: number): boolean {
+    return requestId.current === ticket;
+  }
+
+  async function select(hit: Hit, g: Gender, ticket: number = nextTicket()) {
     setStatus('loading');
     setCandidates([]);
     setFound(null);
@@ -226,6 +248,7 @@ export function AthleteLookup() {
                 return null;
               })
             : null;
+        if (!isCurrent(ticket)) return; // a newer lookup superseded this one
         setFound({
           athlete: row.athlete,
           athleteUrlSlug: row.athleteUrlSlug,
@@ -241,6 +264,7 @@ export function AthleteLookup() {
         // results for a ranking score. Everything we can show comes from the Road to
         // Birmingham qualification entry itself.
         const road = await roadToBirmingham(g);
+        if (!isCurrent(ticket)) return;
         setFound({
           athlete: hit.athlete,
           athleteUrlSlug: hit.athleteUrlSlug,
@@ -254,12 +278,13 @@ export function AthleteLookup() {
       }
       setStatus('idle');
     } catch (e) {
+      if (!isCurrent(ticket)) return;
       setStatus('error');
       setMessage(e instanceof Error ? e.message : 'Lookup failed');
     }
   }
 
-  async function runLookup(q: string, g: Gender) {
+  async function runLookup(q: string, g: Gender, ticket: number = nextTicket()) {
     setStatus('loading');
     setMessage('');
     setFound(null);
@@ -275,16 +300,18 @@ export function AthleteLookup() {
         .filter((e) => !rankedSlugs.has(e.competitor.urlSlug) && matches(q, e.competitor.name))
         .map(hitFromQualification);
       const hits = [...rankedHits, ...roadOnlyHits];
+      if (!isCurrent(ticket)) return; // a newer lookup superseded this one
       if (hits.length === 0) {
         setStatus('error');
         setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking or Road to Birmingham list.`);
       } else if (hits.length === 1) {
-        await select(hits[0], g);
+        await select(hits[0], g, ticket);
       } else {
         setCandidates(hits.slice(0, 12));
         setStatus('idle');
       }
     } catch (err) {
+      if (!isCurrent(ticket)) return;
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Ranking fetch failed');
     }
@@ -299,6 +326,7 @@ export function AthleteLookup() {
   // Rankings are per-gender, so switching gender clears the current athlete
   // and results — otherwise a favorite's name lingers under the wrong gender.
   function changeGender(g: Gender) {
+    nextTicket(); // discard anything still in flight for the old gender
     setGender(g);
     setQuery('');
     setFound(null);
@@ -334,9 +362,7 @@ export function AthleteLookup() {
           ))}
         </div>
       )}
-      {needSignIn && (
-        <p className="lookup-msg">Sign in to save favorites.</p>
-      )}
+      {favNotice && <p className="lookup-msg">{favNotice}</p>}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={changeGender} />
         <label className="field">
@@ -372,7 +398,7 @@ export function AthleteLookup() {
                     slug={c.athleteUrlSlug}
                     name={c.athlete}
                     gender={gender}
-                    onNeedSignIn={() => setNeedSignIn(true)}
+                    onNotice={setFavNotice}
                   />
                 </span>
                 <span className="muted" style={{ marginLeft: 'auto' }}>
@@ -392,7 +418,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNeedSignIn={() => setNeedSignIn(true)} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setFavNotice} />}
     </section>
   );
 }
@@ -511,7 +537,7 @@ function useAthleteResults(slug: string, years: number[], enabled: boolean) {
   return { results, state };
 }
 
-function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found: Found; onNeedSignIn: () => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
+function Result({ found, onNotice, rankingType, changeRankingType }: { found: Found; onNotice: (msg: string) => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
   const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
   const results = ranked?.calc.results ?? [];
   const baseScores = results.map((r) => r.performanceScore);
@@ -634,7 +660,7 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
             slug={athleteUrlSlug}
             name={athlete}
             gender={gender}
-            onNeedSignIn={onNeedSignIn}
+            onNotice={onNotice}
           />
         </div>
         <div className="muted">{nationality} · High Jump</div>
@@ -796,16 +822,29 @@ function Result({ found, onNeedSignIn, rankingType, changeRankingType }: { found
   );
 }
 
+/**
+ * Turn a favorites write failure into something worth reading. The 50-favorite
+ * cap is enforced by a database trigger, so it surfaces as a Postgres error
+ * rather than anything the client can pre-check.
+ */
+function favoriteError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes('favorite limit reached')) {
+    return "You've reached the 50-favorite limit. Un-star someone to add another.";
+  }
+  return "Couldn't save that favorite. Please try again.";
+}
+
 function FavoriteStar({
   slug,
   name,
   gender,
-  onNeedSignIn,
+  onNotice,
 }: {
   slug: string;
   name: string;
   gender: Gender;
-  onNeedSignIn: () => void;
+  onNotice: (msg: string) => void;
 }) {
   const { user } = useAuth();
   const { isFavorite, toggle } = useFavorites();
@@ -818,8 +857,11 @@ function FavoriteStar({
       aria-label={active ? 'Remove favorite' : 'Add favorite'}
       onClick={(event) => {
         event.stopPropagation();
-        if (!user) return onNeedSignIn();
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch(() => { });
+        if (!user) return onNotice('Sign in to save favorites.');
+        onNotice('');
+        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch((e) =>
+          onNotice(favoriteError(e)),
+        );
       }}
     >
       {active ? '★' : '☆'}
