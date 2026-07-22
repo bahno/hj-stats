@@ -366,7 +366,19 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, users: optedIn.length, athletes: distinct.size, sent, dry });
+  // Report what was actually reachable, not just what was attempted. Without
+  // rankDates/skipped, a run where every EA fetch failed is indistinguishable
+  // from a healthy quiet day: both report sent: 0.
+  return json({
+    ok: true,
+    users: optedIn.length,
+    athletes: distinct.size,
+    resolved: athleteEvents.size,
+    skipped: distinct.size - athleteEvents.size,
+    rankDates: Object.fromEntries(rankDateByGender),
+    sent,
+    dry,
+  });
 });
 
 /** Park an undelivered digest for the next run to merge into and retry. */

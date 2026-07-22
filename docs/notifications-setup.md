@@ -65,10 +65,17 @@ select cron.schedule(
 curl "https://<project-ref>.functions.supabase.co/notify-poll?dry=1" \
   -H "x-cron-secret: $CRON_SECRET"
 ```
-Expect `{ ok: true, ... , dry: true }`. A dry run has **no side effects**: it sends no
+Expect something like:
+```json
+{"ok":true,"users":1,"athletes":4,"resolved":4,"skipped":0,
+ "rankDates":{"men":"26 JUL 2026","women":"26 JUL 2026"},"sent":0,"dry":true}
+```
+Check `rankDates` is populated and `skipped` is 0 — a run where every EA fetch
+failed still reports `sent: 0`, so `sent` alone tells you nothing. `skipped`
+counts favorited athletes that couldn't be resolved from the ranking list. A dry run has **no side effects**: it sends no
 emails, writes no `notification_deliveries` rows, and does not touch the per-user
 idempotency guards — it only logs a preview of what it *would* send to the function logs
-(view with `npx supabase functions logs notify-poll`). Remove `?dry=1` to send for real.
+(view them in the dashboard → Edge Functions → notify-poll → Logs). Remove `?dry=1` to send for real.
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
