@@ -7,12 +7,20 @@ The notification code ships dormant. To turn it on:
 - Copy an API key.
 
 ## 2. Supabase secrets
+The CLI ships as a devDependency, so it's `npx supabase ...` unless you have it
+installed globally.
+
 ```bash
-supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set NOTIFY_FROM_EMAIL="HJ Stats <no-reply@yourdomain>"
-supabase secrets set CRON_SECRET="$(openssl rand -hex 32)"
+npx supabase secrets set RESEND_API_KEY=re_xxx
+npx supabase secrets set NOTIFY_FROM_EMAIL="HJ Stats <no-reply@yourdomain>"
+
+# Print the secret BEFORE setting it — step 5 needs the value, and a secret
+# cannot be read back out of Supabase afterwards.
+CRON_SECRET="$(openssl rand -hex 32)"; echo "$CRON_SECRET"
+npx supabase secrets set CRON_SECRET="$CRON_SECRET"
+
 # Origins allowed to call delete-account from a browser (comma-separated).
-supabase secrets set ALLOWED_ORIGINS="https://bahno.github.io"
+npx supabase secrets set ALLOWED_ORIGINS="https://bahno.github.io"
 ```
 (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
 
@@ -20,8 +28,11 @@ supabase secrets set ALLOWED_ORIGINS="https://bahno.github.io"
 set, the function refuses to run and returns 503.
 
 ## 3. Apply the migrations
+Do this **before** step 4. The poller selects `last_ranking_weeks` and reads
+`notification_outbox`; deployed against the old schema it fails every run with
+`notification_settings query failed`.
 ```bash
-supabase db push        # applies 0002_notifications.sql .. 0006_notification_outbox.sql
+npx supabase db push    # applies 0002_notifications.sql .. 0006_notification_outbox.sql
 ```
 
 ## 4. Deploy functions
@@ -30,9 +41,9 @@ supabase db push        # applies 0002_notifications.sql .. 0006_notification_ou
 # CRON_SECRET header is the only way in: the default JWT check would accept the
 # project's anon key, which ships publicly in the browser bundle — i.e. any
 # visitor could trigger a full poll run.
-supabase functions deploy notify-poll --no-verify-jwt
-supabase functions deploy notify-unsubscribe --no-verify-jwt
-supabase functions deploy delete-account
+npx supabase functions deploy notify-poll --no-verify-jwt
+npx supabase functions deploy notify-unsubscribe --no-verify-jwt
+npx supabase functions deploy delete-account
 ```
 
 ## 5. Schedule the daily cron
@@ -52,12 +63,12 @@ select cron.schedule(
 ## 6. Smoke test
 ```bash
 curl "https://<project-ref>.functions.supabase.co/notify-poll?dry=1" \
-  -H "x-cron-secret: <CRON_SECRET>"
+  -H "x-cron-secret: $CRON_SECRET"
 ```
 Expect `{ ok: true, ... , dry: true }`. A dry run has **no side effects**: it sends no
 emails, writes no `notification_deliveries` rows, and does not touch the per-user
 idempotency guards — it only logs a preview of what it *would* send to the function logs
-(view with `supabase functions logs notify-poll`). Remove `?dry=1` to send for real.
+(view with `npx supabase functions logs notify-poll`). Remove `?dry=1` to send for real.
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
