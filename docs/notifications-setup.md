@@ -61,10 +61,17 @@ select cron.schedule(
 ```
 
 ## 6. Smoke test
+`$CRON_SECRET` only expands in the shell from step 2. A new terminal sends an
+empty header and the call returns `{"ok":false,"error":"forbidden"}` — paste the
+literal value if in doubt.
 ```bash
 curl "https://<project-ref>.functions.supabase.co/notify-poll?dry=1" \
   -H "x-cron-secret: $CRON_SECRET"
 ```
+A `403` means only that the header didn't match; it is never in itself evidence
+that the stored secret is wrong. To confirm what Supabase holds, compare
+`npx supabase secrets list` with `printf '%s' "<value>" | sha256sum`.
+
 Expect something like:
 ```json
 {"ok":true,"users":1,"athletes":4,"resolved":4,"skipped":0,
@@ -72,10 +79,13 @@ Expect something like:
 ```
 Check `rankDates` is populated and `skipped` is 0 — a run where every EA fetch
 failed still reports `sent: 0`, so `sent` alone tells you nothing. `skipped`
-counts favorited athletes that couldn't be resolved from the ranking list. A dry run has **no side effects**: it sends no
-emails, writes no `notification_deliveries` rows, and does not touch the per-user
-idempotency guards — it only logs a preview of what it *would* send to the function logs
-(view them in the dashboard → Edge Functions → notify-poll → Logs). Remove `?dry=1` to send for real.
+counts favorited athletes that couldn't be resolved from the ranking list.
+
+A dry run has **no side effects**: it sends no emails, writes no
+`notification_deliveries` or `notification_outbox` rows, doesn't touch the
+snapshots, and doesn't advance the per-user idempotency guards — it only logs a
+preview of what it *would* send (dashboard → Edge Functions → notify-poll →
+Logs). Remove `?dry=1` to send for real.
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
