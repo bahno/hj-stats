@@ -72,9 +72,12 @@ describe('fetchAthleteState', () => {
           result: {
             data: {
               json: {
-                resultsByYear: {
-                  resultsByEvent: [
-                    { results: [{ date: '12 JUL 2026', competition: 'Rome', mark: '2.30' }] },
+                results: {
+                  categories: [
+                    {
+                      discipline: 'High Jump',
+                      results: [{ date: '12 JUL 2026', competition: 'Rome', mark: '2.30' }],
+                    },
                   ],
                 },
               },

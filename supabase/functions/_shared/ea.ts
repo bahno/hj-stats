@@ -58,15 +58,34 @@ function unwrap(body: unknown): unknown {
 
 // --- pure parsers -----------------------------------------------------------
 
+/**
+ * An athlete's current-season results from `worldAthletics.getAthleteProfile`.
+ *
+ * The payload puts them at `results.categories[]`, grouped by discipline, each
+ * holding that discipline's results for the profile's default (latest) year —
+ * which is exactly the season we want. `results.years` lists the other years
+ * available, but nothing here needs them.
+ *
+ * This previously read `resultsByYear.resultsByEvent`, a shape the endpoint has
+ * never returned (verified 2026-07-22, with and without a resultsByYear input).
+ * It therefore returned [] for every athlete: season best always rendered as
+ * "—", and diffResults never saw a new result, so the daily results digest
+ * could not fire at all.
+ */
 export function parseResults(profile: unknown): ResultItem[] {
   const p = profile as {
-    resultsByYear?: { resultsByEvent?: Array<{ results?: Array<Record<string, unknown>> }> };
+    results?: {
+      categories?: Array<{ discipline?: string; results?: Array<Record<string, unknown>> }>;
+    };
   };
-  const events = p?.resultsByYear?.resultsByEvent;
-  if (!Array.isArray(events)) return [];
+  const categories = p?.results?.categories;
+  if (!Array.isArray(categories)) return [];
   const out: ResultItem[] = [];
-  for (const ev of events) {
-    for (const r of ev.results ?? []) {
+  for (const c of categories) {
+    // Profiles carry other disciplines too (relays, sprints) — mirror the
+    // frontend's High Jump filter so a relay leg can't become a season best.
+    if (c?.discipline !== 'High Jump') continue;
+    for (const r of c.results ?? []) {
       const date = String(r.date ?? '');
       const competition = String(r.competition ?? '');
       const mark = String(r.mark ?? '');
