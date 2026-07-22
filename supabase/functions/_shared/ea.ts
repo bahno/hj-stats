@@ -7,6 +7,7 @@ import type {
   ResultItem,
   QualificationState,
 } from './detectors.ts';
+import { HttpError, withRetry } from './retry.ts';
 
 const EA_TRPC = 'https://api.european-athletics.com/trpc';
 
@@ -36,13 +37,17 @@ export interface FetchDeps {
 const FETCH_TIMEOUT_MS = 10_000;
 
 const realDeps: FetchDeps = {
-  async fetchJson(url: string) {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { 'User-Agent': 'hj-stats-notify-poll/1.0 (+https://github.com/bahno/hj-stats)' },
+  fetchJson(url: string) {
+    // Retried: one blip used to drop an athlete for the whole run, and a blip on
+    // the ranking list dropped every athlete of that gender.
+    return withRetry(async () => {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        headers: { 'User-Agent': 'hj-stats-notify-poll/1.0 (+https://github.com/bahno/hj-stats)' },
+      });
+      if (!res.ok) throw new HttpError(res.status);
+      return res.json();
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
   },
 };
 

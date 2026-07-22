@@ -8,6 +8,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // The edge functions run under Deno, which requires explicit .ts extensions
+    // on relative imports. Safe here because this project never emits via tsc
+    // (noEmit below; Vite does the building).
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,

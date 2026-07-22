@@ -1,6 +1,7 @@
 // Pluggable notification channels. v1 ships EmailChannel (Resend); the Channel
 // interface lets Telegram/WhatsApp slot in later without touching the poller.
 import type { EmailPayload } from './detectors.ts';
+import { HttpError, withRetry } from './retry.ts';
 
 export interface Channel {
   send(to: string, payload: EmailPayload): Promise<void>;
@@ -49,17 +50,24 @@ export class EmailChannel implements Channel {
   ) {}
 
   async send(to: string, payload: EmailPayload): Promise<void> {
-    const res = await this.fetchImpl('https://api.resend.com/emails', {
-      method: 'POST',
-      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(buildResendBody(this.from, to, payload)),
+    // Retried on 429/5xx only. A 4xx here (bad key, unverified sender, sandbox
+    // recipient restriction) is a configuration fault that repeating won't fix,
+    // and it must surface in notification_deliveries.error rather than being
+    // buried under retries. The outbox handles the longer-term retry anyway.
+    await withRetry(async () => {
+      const res = await this.fetchImpl('https://api.resend.com/emails', {
+        method: 'POST',
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildResendBody(this.from, to, payload)),
+      });
+      if (!res.ok) {
+        // Keep Resend's own message: it is what lands in the delivery log.
+        throw new HttpError(res.status, `Resend HTTP ${res.status}: ${await res.text()}`);
+      }
     });
-    if (!res.ok) {
-      throw new Error(`Resend HTTP ${res.status}: ${await res.text()}`);
-    }
   }
 }
