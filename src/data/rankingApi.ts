@@ -6,9 +6,23 @@
  */
 const EA_TRPC = 'https://api.european-athletics.com/trpc';
 
+/** Without a cap, a hung response leaves the UI on "Searching…" indefinitely. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export async function trpc<T>(proc: string, input: unknown): Promise<T> {
   const query = encodeURIComponent(JSON.stringify({ json: input }));
-  const res = await fetch(`${EA_TRPC}/${proc}?input=${query}`);
+  let res: Response;
+  try {
+    res = await fetch(`${EA_TRPC}/${proc}?input=${query}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    // A bare "signal is aborted without reason" tells the user nothing.
+    if (e instanceof DOMException && e.name === 'TimeoutError') {
+      throw new Error(`${proc}: the ranking service didn't respond in time`);
+    }
+    throw e;
+  }
   if (!res.ok) throw new Error(`${proc}: HTTP ${res.status}`);
   const body = await res.json();
   if (body?.error) throw new Error(body.error?.json?.message ?? `${proc} error`);

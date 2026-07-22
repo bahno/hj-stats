@@ -61,16 +61,28 @@ export function athleteIdFromSlug(urlSlug: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Without a cap, a hung response leaves the result table spinning forever. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function fetchResultsForYear(athleteId: number, year: number): Promise<AthleteResult[]> {
-  const res = await fetch(WA_GRAPHQL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': WA_API_KEY },
-    body: JSON.stringify({
-      operationName: 'GetSingleCompetitorResultsDate',
-      query: RESULTS_BY_YEAR_QUERY,
-      variables: { id: athleteId, resultsByYear: year, resultsByYearOrderBy: 'date' },
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(WA_GRAPHQL, {
+      method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: { 'content-type': 'application/json', 'x-api-key': WA_API_KEY },
+      body: JSON.stringify({
+        operationName: 'GetSingleCompetitorResultsDate',
+        query: RESULTS_BY_YEAR_QUERY,
+        variables: { id: athleteId, resultsByYear: year, resultsByYearOrderBy: 'date' },
+      }),
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'TimeoutError') {
+      throw new Error("getSingleCompetitorResultsDate: the results service didn't respond in time");
+    }
+    throw e;
+  }
   if (!res.ok) throw new Error(`getSingleCompetitorResultsDate: HTTP ${res.status}`);
   const body = await res.json();
   if (body?.errors?.length) throw new Error(body.errors[0]?.message ?? 'results query error');

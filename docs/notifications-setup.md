@@ -21,7 +21,7 @@ set, the function refuses to run and returns 503.
 
 ## 3. Apply the migrations
 ```bash
-supabase db push        # applies 0002_notifications.sql .. 0005_hardening.sql
+supabase db push        # applies 0002_notifications.sql .. 0006_notification_outbox.sql
 ```
 
 ## 4. Deploy functions
@@ -61,14 +61,20 @@ idempotency guards — it only logs a preview of what it *would* send to the fun
 
 ## Notes
 - First run only seeds snapshots — no emails until data changes.
-- **Delivery reliability:** a failed send no longer advances the per-user `last_*`
-  guards, and the idempotency check only treats `status='sent'` rows as delivered, so
-  the next run retries that digest. Failures are still recorded as `status='error'`
-  rows in `notification_deliveries` for audit.
-  **Remaining limitation:** the per-athlete *snapshot* still advances regardless. If a
-  send fails and the athlete's state changes again before the retry, the retry sends
-  the digest built from the newer diff — so the intermediate change is folded in, not
-  replayed separately. Making that fully at-least-once needs a per-user outbox.
+- **Delivery is at-least-once.** Three things make that work together:
+  1. The idempotency check only treats `status='sent'` rows as delivered, so a logged
+     failure doesn't suppress the retry (failures stay as `status='error'` rows for audit).
+  2. A failed send doesn't advance the per-user `last_*` guards.
+  3. The undelivered events are parked in `notification_outbox` and merged into the
+     next run's events. This is the part that actually makes a retry possible: the
+     per-athlete `ranking_snapshots` row advances on every run regardless of who the
+     email reached, so without the outbox the next run would diff against the
+     already-advanced snapshot, find nothing, and send nothing.
+
+  Merging composes changes rather than repeating them — a rank move of 8→5 followed by
+  5→3 arrives as 8→3, and a change that reverted drops out instead of reporting a no-op.
+  A pending entry that keeps failing (or is orphaned by an unsubscribe) is dropped after
+  7 days rather than eventually delivering stale news.
 - Ranking digests are tracked per gender (`notification_settings.last_ranking_weeks`,
   a `{"men": ..., "women": ...}` map), because the men's and women's lists publish on
   independent dates.

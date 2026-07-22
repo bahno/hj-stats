@@ -152,6 +152,81 @@ export function diffQualification(prev: Snapshot, curr: RankingState): QualChang
   return { from: was.qualified, to: now.qualified, place: now.place, target: now.target };
 }
 
+// --- outbox merging ---------------------------------------------------------
+// A digest that failed to send is parked in notification_outbox and merged with
+// the next run's events. Merging composes the two into what a single digest
+// would have said all along: A→B followed by B→C reads as A→C, and a change
+// that reverted (A→B→A) drops out entirely rather than reporting a no-op.
+
+function mergePlaces(a: PlaceChange[], b: PlaceChange[]): PlaceChange[] {
+  const out: PlaceChange[] = [];
+  // Iterate scopes in diffPlace's order so merged digests read identically.
+  for (const scope of ['european', 'world'] as const) {
+    const pa = a.find((p) => p.scope === scope);
+    const pb = b.find((p) => p.scope === scope);
+    if (!pa || !pb) {
+      const only = pa ?? pb;
+      if (only) out.push(only);
+      continue;
+    }
+    const { from } = pa;
+    const { to } = pb;
+    if (from == null || to == null || from === to) continue; // moved and moved back
+    out.push({ scope, from, to, direction: to < from ? 'up' : 'down' });
+  }
+  return out;
+}
+
+function mergeScores(a: ScoreChange | null, b: ScoreChange | null): ScoreChange | null {
+  if (!a || !b) return a ?? b;
+  const { from } = a;
+  const { to } = b;
+  if (from == null || to == null || from === to) return null;
+  return { from, to, delta: Math.round((to - from) * 100) / 100 };
+}
+
+function mergeQuals(a: QualChange | null, b: QualChange | null): QualChange | null {
+  if (!a || !b) return a ?? b;
+  if (a.from === b.to) return null; // dropped out and came back (or vice versa)
+  return { from: a.from, to: b.to, place: b.place, target: b.target };
+}
+
+function mergeAthlete(a: AthleteEvents, b: AthleteEvents): AthleteEvents {
+  const results = [...a.results];
+  const seen = new Set(a.results.map(resultKey));
+  for (const r of b.results) {
+    if (seen.has(resultKey(r))) continue;
+    seen.add(resultKey(r));
+    results.push(r);
+  }
+  return {
+    slug: b.slug,
+    name: b.name || a.name,
+    gender: b.gender,
+    results,
+    place: mergePlaces(a.place, b.place),
+    score: mergeScores(a.score, b.score),
+    qualification: mergeQuals(a.qualification, b.qualification),
+    // A résumé owed from an earlier run is still owed until it actually sends.
+    intro: a.intro ?? b.intro ?? null,
+  };
+}
+
+/**
+ * Fold an undelivered event set (`prev`) together with this run's (`next`).
+ * Athletes present in only one side pass through untouched.
+ */
+export function mergeEvents(prev: AthleteEvents[], next: AthleteEvents[]): AthleteEvents[] {
+  const byKey = new Map<string, AthleteEvents>();
+  for (const e of prev) byKey.set(`${e.gender}:${e.slug}`, e);
+  for (const e of next) {
+    const k = `${e.gender}:${e.slug}`;
+    const existing = byKey.get(k);
+    byKey.set(k, existing ? mergeAthlete(existing, e) : e);
+  }
+  return [...byKey.values()];
+}
+
 export function filterByPrefs(ev: AthleteEvents, prefs: NotifyPrefs): AthleteEvents {
   return {
     ...ev,
