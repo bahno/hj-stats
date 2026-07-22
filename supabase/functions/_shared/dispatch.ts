@@ -11,7 +11,22 @@ export function buildResendBody(
   to: string,
   payload: EmailPayload,
 ): Record<string, unknown> {
-  return { from, to: [to], subject: payload.subject, html: payload.html, text: payload.text };
+  const body: Record<string, unknown> = {
+    from,
+    to: [to],
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  };
+  // RFC 8058: let the mail client offer its own one-click unsubscribe, which it
+  // sends as a POST — matching what notify-unsubscribe accepts.
+  if (payload.unsubscribeUrl) {
+    body.headers = {
+      'List-Unsubscribe': `<${payload.unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+  return body;
 }
 
 export function appendUnsubscribe(payload: EmailPayload, url: string): EmailPayload {
@@ -19,8 +34,12 @@ export function appendUnsubscribe(payload: EmailPayload, url: string): EmailPayl
     subject: payload.subject,
     text: `${payload.text}\n\n—\nUnsubscribe: ${url}`,
     html: `${payload.html}<hr/><p style="font-size:12px;color:#888">You get these because you enabled notifications. <a href="${url}">Unsubscribe</a>.</p>`,
+    unsubscribeUrl: url,
   };
 }
+
+/** A hung Resend request would stall the whole poller run; cap it. */
+const SEND_TIMEOUT_MS = 15_000;
 
 export class EmailChannel implements Channel {
   constructor(
@@ -32,6 +51,7 @@ export class EmailChannel implements Channel {
   async send(to: string, payload: EmailPayload): Promise<void> {
     const res = await this.fetchImpl('https://api.resend.com/emails', {
       method: 'POST',
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',

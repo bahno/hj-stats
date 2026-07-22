@@ -22,10 +22,23 @@ export function NotificationSettings() {
 
   useEffect(() => {
     if (!user) return;
+    let active = true;
     getNotificationSettings(user.id)
-      .then((s) => setEmailEnabled(Boolean(s?.email_enabled)))
-      .finally(() => setLoaded(true));
-  }, [user]);
+      .then((s) => {
+        if (active) setEmailEnabled(Boolean(s?.email_enabled));
+      })
+      .catch(() => {
+        // Leave the toggle off but say why, rather than showing a confident
+        // "off" that is really "we don't know" (and an unhandled rejection).
+        if (active) setMessage('Could not load your notification setting.');
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   if (!user) return null;
 

@@ -15,6 +15,9 @@
     "noUnusedParameters": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src"],
+  // The edge functions' _shared modules are plain TypeScript (no Deno globals,
+  // no URL imports) and are unit-tested with vitest, so typecheck them here.
+  // The function entrypoints themselves can only be checked by `deno check`.
+  "include": ["src", "supabase/functions/_shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

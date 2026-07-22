@@ -4,7 +4,6 @@ import { DEFAULT_NOTIFY_PREFS } from './types';
 
 export interface Profile {
   id: string;
-  display_name: string | null;
   default_gender: Gender | null;
 }
 
@@ -20,7 +19,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, default_gender')
+    .select('id, default_gender')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -29,7 +28,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'display_name' | 'default_gender'>>,
+  patch: Partial<Pick<Profile, 'default_gender'>>,
 ): Promise<void> {
   if (!supabase) throw new Error('Auth is not configured');
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
@@ -93,6 +92,12 @@ export async function getNotificationSettings(
   return (data as NotificationSettings | null) ?? null;
 }
 
+/**
+ * Upsert rather than update: the row is normally created by the handle_new_user
+ * trigger, but if that ever failed the user would otherwise have no settings row
+ * and no way to make one. Upserting lets the client heal itself (the matching
+ * INSERT policy pins the row to auth.uid()).
+ */
 export async function updateNotificationSettings(
   userId: string,
   patch: Partial<Pick<NotificationSettings, 'email_enabled'>>,
@@ -100,8 +105,10 @@ export async function updateNotificationSettings(
   if (!supabase) throw new Error('Auth is not configured');
   const { error } = await supabase
     .from('notification_settings')
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', userId);
+    .upsert(
+      { user_id: userId, ...patch, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' },
+    );
   if (error) throw error;
 }
 

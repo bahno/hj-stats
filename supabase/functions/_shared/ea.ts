@@ -31,9 +31,16 @@ export interface FetchDeps {
   fetchJson: (url: string) => Promise<unknown>;
 }
 
+/** Outbound calls to EA get a hard timeout: a hung response would otherwise
+ *  block the poller until the platform kills the whole run. */
+const FETCH_TIMEOUT_MS = 10_000;
+
 const realDeps: FetchDeps = {
   async fetchJson(url: string) {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { 'User-Agent': 'hj-stats-notify-poll/1.0 (+https://github.com/bahno/hj-stats)' },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
@@ -72,7 +79,7 @@ export function parseResults(profile: unknown): ResultItem[] {
 export function buildRankingState(
   row: RankingRowLite,
   rankDate: string,
-  results: ResultItem[],
+  results: ResultItem[] | null,
   qual: QualificationState | null,
 ): RankingState {
   return {
@@ -116,13 +123,20 @@ export function qualificationFor(road: RoadToLite | null, slug: string): Qualifi
 
 // --- IO ---------------------------------------------------------------------
 
-/** Resolve a favorited athlete's slug to their current ranking row by scanning
- *  the ranking list (the EA API has no search procedure). */
-async function findRow(
-  slug: string,
+/** A gender's whole ranking list, indexed by athlete slug. The EA API has no
+ *  search procedure, so resolving a slug means scanning the list — fetch and
+ *  index it *once per gender* rather than once per athlete. */
+export interface RankingIndex {
+  rankDate: string;
+  bySlug: Map<string, { row: RankingRowLite; waId: number | null }>;
+}
+
+/** Fetch and index every page of a gender's high-jump ranking (one call site
+ *  per poller run, per gender). */
+export async function fetchRankingIndex(
   gender: Gender,
-  deps: FetchDeps,
-): Promise<{ row: RankingRowLite; rankDate: string; waId: number | null } | null> {
+  deps: FetchDeps = realDeps,
+): Promise<RankingIndex> {
   const first = unwrap(await deps.fetchJson(trpcUrl('worldAthletics.getRanking', {
     eventGroup: 'high-jump',
     gender,
@@ -138,19 +152,22 @@ async function findRow(
     }))) as { rankings?: Array<Record<string, unknown>> };
     all.push(...(next?.rankings ?? []));
   }
-  const match = all.find((r) => String(r.athleteUrlSlug ?? '') === slug);
-  if (!match) return null;
-  const waId = Number(String(match.athleteUrlSlug ?? '').match(/-(\d+)$/)?.[1] ?? '') || null;
-  return {
-    rankDate,
-    waId,
-    row: {
-      europeanPlace: Number(match.place) || null,
-      worldPlace: Number(match.worldPlace) || null,
-      rankingScore: Number(match.rankingScore) || null,
-      calculationId: Number(match.id) || null,
-    },
-  };
+
+  const bySlug = new Map<string, { row: RankingRowLite; waId: number | null }>();
+  for (const r of all) {
+    const slug = String(r.athleteUrlSlug ?? '');
+    if (!slug) continue;
+    bySlug.set(slug, {
+      waId: Number(slug.match(/-(\d+)$/)?.[1] ?? '') || null,
+      row: {
+        europeanPlace: Number(r.place) || null,
+        worldPlace: Number(r.worldPlace) || null,
+        rankingScore: Number(r.rankingScore) || null,
+        calculationId: Number(r.id) || null,
+      },
+    });
+  }
+  return { rankDate, bySlug };
 }
 
 /** Fetch the Road to Birmingham qualifying system for a gender (one call covers
@@ -167,16 +184,25 @@ export async function fetchRoadTo(gender: Gender, deps: FetchDeps = realDeps): P
   return parseRoadTo(raw);
 }
 
+/**
+ * Assemble one athlete's current state from the pre-fetched per-gender ranking
+ * index (see `fetchRankingIndex`) plus their profile results. Returns null when
+ * the athlete has no row in the ranking at all.
+ */
 export async function fetchAthleteState(
   slug: string,
-  gender: Gender,
-  deps: FetchDeps = realDeps,
+  index: RankingIndex,
   roadTo: RoadToLite | null = null,
+  deps: FetchDeps = realDeps,
 ): Promise<RankingState | null> {
-  const found = await findRow(slug, gender, deps);
+  const found = index.bySlug.get(slug);
   if (!found) return null;
 
-  let results: ResultItem[] = [];
+  // null (not []) when the profile fetch fails: an empty list would be written
+  // to the snapshot as "this athlete has no results", and every past result
+  // would then re-surface as new on the next successful run. The caller must
+  // treat null as "unknown — leave the stored results alone".
+  let results: ResultItem[] | null = null;
   if (found.waId != null) {
     try {
       const profile = unwrap(
@@ -184,7 +210,7 @@ export async function fetchAthleteState(
       );
       results = parseResults(profile);
     } catch {
-      results = []; // graceful degradation — skip results for this athlete
+      results = null; // graceful degradation — this run just can't see results
     }
   }
 
@@ -193,5 +219,5 @@ export async function fetchAthleteState(
   // isn't in the system — diffQualification then stays quiet. Graceful degradation.
   const qualification = qualificationFor(roadTo, slug);
 
-  return buildRankingState(found.row, found.rankDate, results, qualification);
+  return buildRankingState(found.row, index.rankDate, results, qualification);
 }

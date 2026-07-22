@@ -20,7 +20,9 @@ export interface RankingState {
   worldPlace: number | null;
   europeanPlace: number | null;
   rankingScore: number | null;
-  results: ResultItem[];
+  /** null when the profile fetch failed — "unknown", not "no results". Callers
+   *  must leave the stored snapshot results untouched rather than write []. */
+  results: ResultItem[] | null;
   qualification: QualificationState | null;
 }
 
@@ -89,6 +91,8 @@ export interface EmailPayload {
   subject: string;
   html: string;
   text: string;
+  /** Set by `appendUnsubscribe`; becomes the RFC 8058 List-Unsubscribe header. */
+  unsubscribeUrl?: string;
 }
 
 export function resultKey(r: ResultItem): string {
@@ -158,8 +162,14 @@ export function filterByPrefs(ev: AthleteEvents, prefs: NotifyPrefs): AthleteEve
   };
 }
 
+/** HTML-escape for email bodies. Quotes are escaped too so interpolating into
+ *  an attribute (not done today) can't break out of it later. */
 function esc(s: string): string {
-  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string);
+  return s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
 }
 
 const CAP: Record<'world' | 'european', string> = { world: 'World', european: 'European' };

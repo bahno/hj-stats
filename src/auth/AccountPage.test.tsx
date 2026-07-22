@@ -28,7 +28,7 @@ beforeEach(() => {
   mocks.signOut.mockReset();
   mocks.getProfile
     .mockReset()
-    .mockResolvedValue({ id: 'u1', display_name: 'Gia', default_gender: 'men' });
+    .mockResolvedValue({ id: 'u1', default_gender: 'men' });
   mocks.updateProfile.mockReset().mockResolvedValue(undefined);
   mocks.getNotificationSettings
     .mockReset()
