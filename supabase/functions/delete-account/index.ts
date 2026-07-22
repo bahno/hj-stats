@@ -1,6 +1,9 @@
 // Supabase Edge Function (Deno). Deletes the authenticated user's auth record,
 // which cascades to their profiles/favorites rows. Requires the caller's JWT.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Pinned exactly: an unpinned @2 lets a dependency change ship to production
+// without any commit here. Bump deliberately, alongside the npm dependency.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
 
 // Only the app's own origins may call this. ALLOWED_ORIGINS is a comma-separated
 // list (set it with `supabase secrets set ALLOWED_ORIGINS=...`); it falls back to

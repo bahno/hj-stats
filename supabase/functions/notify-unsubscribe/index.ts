@@ -4,7 +4,10 @@
 // gateways and link-prefetchers routinely follow every URL in an email, so a
 // GET that mutated state would silently unsubscribe people who never clicked.
 // The POST form doubles as the RFC 8058 List-Unsubscribe-Post target.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Pinned exactly: an unpinned @2 lets a dependency change ship to production
+// without any commit here. Bump deliberately, alongside the npm dependency.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

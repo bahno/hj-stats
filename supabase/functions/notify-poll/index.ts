@@ -5,7 +5,10 @@
 // Not a public endpoint: the caller must present CRON_SECRET. Deploy with
 // --no-verify-jwt so that secret is the only gate (the project's anon key is
 // public, so JWT verification alone would let any visitor trigger a run).
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Pinned exactly: an unpinned @2 lets a dependency change ship to production
+// without any commit here. Bump deliberately, alongside the npm dependency.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
 import {
   fetchAthleteState,
   fetchRankingIndex,

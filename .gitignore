@@ -28,3 +28,6 @@ __pycache__/
 # Supabase CLI local state
 **/.temp/
 todo.md
+
+# Deno resolves edge-function deps from the pinned import URLs.
+deno.lock
