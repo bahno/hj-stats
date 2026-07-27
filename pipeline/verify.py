@@ -1,13 +1,17 @@
-"""Verify generated placing data against known authoritative values. Exit non-zero on mismatch."""
+"""Verify the generated scoring table against known authoritative values.
+
+Exit non-zero on mismatch.
+
+Placing scores are NOT checked here any more — they moved to verify_rules.py when
+the pipeline gained the full set of Track & Field placing tables. The anchors that
+used to live here were for the 2025 rules (an OW win scored 375); the 2026 edition
+scores it 260, so leaving them would have failed every correct run.
+"""
 import json
 import sys
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "src" / "data"
-
-# Known 1st-place T&F final placing points (World Athletics ranking rules 2025, Table 2.2).
-# These are the authoritative anchor values from the brief; do NOT change to force a pass.
-EXPECTED_PLACING_1ST = {"OW": 375, "DF": 240, "GW": 200, "GL": 170, "A": 140}
 
 # Known high-jump performance points read directly from the official 2025 Scoring Tables PDF
 # (World Athletics Scoring Tables of Athletics, 2025 Revised Edition, by Dr. Bojidar Spiriev /
@@ -34,27 +38,6 @@ EXPECTED_PERFORMANCE = {
 }
 
 
-def verify_placing() -> list[str]:
-    path = DATA / "placing_points.json"
-    if not path.exists():
-        return [f"placing_points.json not found at {path}"]
-    data = json.loads(path.read_text())
-    if "final" not in data:
-        return ["placing_points.json missing 'final' key"]
-    errors = []
-    for cat, pts in EXPECTED_PLACING_1ST.items():
-        got = data["final"].get(cat, {}).get("1")
-        if got != pts:
-            errors.append(f"placing {cat} 1st: expected {pts}, got {got}")
-    # Also check all 10 categories are present
-    expected_cats = {"OW", "DF", "GW", "GL", "A", "B", "C", "D", "E", "F"}
-    actual_cats = set(data["final"].keys())
-    missing = expected_cats - actual_cats
-    if missing:
-        errors.append(f"Missing categories in 'final': {sorted(missing)}")
-    return errors
-
-
 def verify_performance() -> list[str]:
     path = DATA / "scoring_table.json"
     if not path.exists():
@@ -72,13 +55,13 @@ def verify_performance() -> list[str]:
 
 
 def main():
-    errors = verify_placing() + verify_performance()
+    errors = verify_performance()
     if errors:
         print("VERIFY FAILED:")
         for e in errors:
             print("  -", e)
         sys.exit(1)
-    print("All data verified.")
+    print("Scoring table verified. Run verify_rules.py for the placing tables.")
 
 
 if __name__ == "__main__":
