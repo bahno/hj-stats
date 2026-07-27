@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest';
+import { findEventGroup } from '../data/events';
+import { parseWaDate } from './dates';
+import { isInWindow, rankingWindow } from './window';
+
+const hj = findEventGroup('high-jump', 'men')!;
+const tenK = findEventGroup('10000m', 'men')!;
+const rankDate = parseWaDate('21 JUL 2026');
+
+describe('rankingWindow', () => {
+  it('spans 12 months for a general track and field group', () => {
+    const w = rankingWindow(hj, rankDate);
+    expect(w.endMs).toBe(rankDate);
+    expect(w.startMs).toBe(parseWaDate('21 JUL 2025'));
+  });
+
+  it('spans 18 months for the 10,000m group', () => {
+    expect(rankingWindow(tenK, rankDate).startMs).toBe(parseWaDate('21 JAN 2025'));
+  });
+
+  it('opens the Area Championships allowance three calendar years back', () => {
+    // Three full calendar years: 2024, 2025, 2026 — so from 01 JAN 2024.
+    expect(rankingWindow(hj, rankDate).areaChampionshipsFromMs).toBe(parseWaDate('2024-01-01'));
+  });
+});
+
+describe('isInWindow', () => {
+  const w = rankingWindow(hj, rankDate);
+
+  it('accepts a result inside the rolling window', () => {
+    expect(isInWindow({ date: '01 JUN 2026', category: 'A' }, w)).toBe(true);
+  });
+
+  it('rejects an ordinary result older than the window', () => {
+    expect(isInWindow({ date: '08 JUN 2024', category: 'A' }, w)).toBe(false);
+  });
+
+  it('accepts an Area Championships result older than the window', () => {
+    // Jacobs' 08 JUN 2024 European Championships result counts in a July 2026
+    // ranking: Area Senior Outdoor Championships are included regardless of the
+    // ranking period, within three full calendar years.
+    expect(isInWindow({ date: '08 JUN 2024', category: 'GL' }, w)).toBe(true);
+  });
+
+  it('rejects an Area Championships result beyond three calendar years', () => {
+    expect(isInWindow({ date: '20 AUG 2023', category: 'GL' }, w)).toBe(false);
+  });
+
+  it('rejects a result in the future of the rank date', () => {
+    expect(isInWindow({ date: '01 SEP 2026', category: 'A' }, w)).toBe(false);
+  });
+
+  it('rejects an unparseable date rather than silently including it', () => {
+    expect(isInWindow({ date: 'nonsense', category: 'A' }, w)).toBe(false);
+  });
+});
