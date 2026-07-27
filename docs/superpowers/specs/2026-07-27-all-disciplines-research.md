@@ -109,13 +109,37 @@ shape the existing scraper already handles):
 
 | Page | Tables |
 |---|---|
-| track-field-events-2025 | 2.2 final · 2.3/2.4 round before final (≥10 / <10 finalists) · 2.5–2.8 5000m & 3000mSC · 2.9 10,000m · 2.10 10km road · 2.12 event groups |
-| combined-events-2025 | 3.1 placing · 3.3 event groups |
-| road-running-2025 | 4.1 marathon · 4.2 half/25km/30km · 4.3 road group · 4.5 event groups |
-| race-walking-2025 | placing + groups |
-| cross-country-2025 | placing + groups |
+| track-field-events | 2.2 final · 2.3 round before final (final of max 9) · 2.4 round before final (final of 10+) · 2.5–2.8 5000m & 3000mSC · 2.9 10,000m · 2.10 10km road · 2.12 event groups |
+| combined-events | 3.1 placing · 3.3 event groups |
+| road-running | 4.1 marathon · 4.2 half/25km/30km · 4.3 road group · 4.5 event groups |
+| race-walking | placing + groups |
+| cross-country | placing + groups |
 
 In scope now: 2.2, 2.3, 2.4, 2.5–2.8, 2.9, 2.10, 2.12.
+
+Even inside Track & Field there is no single placing table. Three distinct
+*final* tables apply — 2.2 generally, 2.5 for the 5000m/3000mSC groups, and 2.9
+for the 10,000m group (with 2.10 for 10km road races, which count inside that
+same group) — each with its own round-before-final companions. The placing-table
+id on the event descriptor is therefore load-bearing, not a convenience.
+
+### 2.4.1 The rules are versioned by year, and the pipeline is a year behind
+
+The rules pages exist per year (`…-2024`, `-2025`, `-2026`; `-2027` 302s, so
+2026 is current). **The 2026 placing scores differ substantially from 2025** —
+Table 2.2, OW 1st place went 375 → 260, and every other cell moved with it.
+
+This is a live bug independent of the generalization:
+
+- `src/data/placing_points.json` holds the **2026** values (OW 1st = 260) and is
+  correct for today's rankings.
+- `pipeline/scrape_placing.py` targets the **2025** page.
+- `pipeline/verify.py` anchors on the **2025** values (`EXPECTED_PLACING_1ST`
+  starts `OW: 375`).
+
+Re-running the pipeline today would overwrite correct data with last year's, and
+the verifier would pass it. The scraper should take the ranking year as a
+parameter and the anchors must move with it.
 
 ### 2.5 Scoring tables
 
@@ -164,12 +188,18 @@ Current `engine/counting.ts` scores finals only, plus a four-entry hardcoded
 `QUAL_TO_FINAL_PLACING` map for high-jump qualification rounds. Generalizing needs
 round-type detection (`F`/`F1`/`SF`/`H`/`Q`) driven by the real Tables 2.3/2.4.
 
-Open problem: Tables 2.3 and 2.4 differ by whether the final had **≥10 or <10
-competitors**, and neither feed reports that. Championship track finals are
-typically 8, championship high jump finals ≥10 — so the current code's implicit
-≥10 assumption is right for high jump and likely wrong for the track. Options:
-infer the finalist count from the competition's own result list, or accept a
-per-family default and validate against the oracle. To be settled in the design.
+Open problem: the round-before-final tables differ by field size — **2.3 applies
+when the final has a maximum of 9 athletes, 2.4 when it has 10 or more** — and
+neither feed reports the finalist count.
+
+The existing `QUAL_TO_FINAL_PLACING` map (`OW: 70, DF: 46, GW: 35, GL: 28`) is
+Table 2.4, the 10-or-more column, and is correct for high jump: championship high
+jump finals run ≥10, and the map reproduces WA's live counting sets exactly.
+Championship *track* finals are typically 8, so they will need Table 2.3 instead —
+the assumption baked in today is right for the current event and wrong for most
+new ones. Options: infer the finalist count from the competition's own result
+list, or take a per-event-group default and let the oracle test expose it. The
+latter is cheap and self-correcting, so it is the likely starting point.
 
 ### 3.3 Event selection throughout the UI
 
@@ -200,11 +230,13 @@ the main defence against silently mis-scoring 17 new events.
 
 ## 5. Open questions for the design
 
-1. Finalist count for Tables 2.3 vs 2.4 (see 3.2).
-2. Whether to implement the overweighting and Area-Championship window exceptions
+1. Whether to fix the stale 2025 placing-table pipeline (see 2.4.1) inside this
+   branch or as a separate hotfix — it is a live correctness bug today.
+2. Finalist count for Tables 2.3 vs 2.4 (see 3.2).
+3. Whether to implement the overweighting and Area-Championship window exceptions
    now — they are pre-existing bugs for high jump, so fixing them is arguably in
    scope regardless.
-3. Where the event registry lives: hand-authored, scraped at build time from
+4. Where the event registry lives: hand-authored, scraped at build time from
    Table 2.12, or harvested from observed `disciplineList` values. Harvesting
    yields exactly the long names the feeds use; Table 2.12 is authoritative but
    uses short names. A cross-check of both is the likely answer.
