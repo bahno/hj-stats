@@ -12,8 +12,10 @@ export interface CountryScore {
 }
 
 export interface ScoringTable {
-  event: 'high_jump';
-  unit: 'm';
+  /** The event the table covers. Only high jump exists today; the scoring-tables
+   *  pipeline will add the rest (see the scoring-tables plan). */
+  event: string;
+  unit: string;
   source: string;
   /** gender -> mark string (e.g. "2.30") -> points */
   points_by_mark: Record<Gender, Record<string, number>>;
