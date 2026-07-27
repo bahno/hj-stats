@@ -10,6 +10,7 @@ from pathlib import Path
 
 from rules_anchors import (
     EXPECTED_CATEGORY_CODES,
+    EXPECTED_DISCIPLINES,
     EXPECTED_EVENT_GROUP_COUNT,
     EVENT_GROUP_ANCHORS,
     PLACING_ANCHORS,
@@ -99,6 +100,19 @@ def check_event_groups(groups: dict, errors: list[str]) -> None:
         errors.append(f"event groups with no ranking API slug: {unslugged}")
 
 
+def check_disciplines(groups: dict, errors: list[str]) -> None:
+    by_label = {g["label"]: g for g in groups["groups"]}
+    for group in groups["groups"]:
+        names = group.get("disciplines")
+        if not names:
+            errors.append(f"event group {group['label']!r}: no disciplines harvested")
+    for label, expected in EXPECTED_DISCIPLINES.items():
+        got = by_label.get(label, {}).get("disciplines", [])
+        for name in expected:
+            if name not in got:
+                errors.append(f"event group {label!r}: expected discipline {name!r}, got {got}")
+
+
 def check_table_2_2_matches_engine_file(placing: dict, errors: list[str]) -> None:
     """placing_points.json (what the engine reads today) must equal Table 2.2."""
     path = DATA / "placing_points.json"
@@ -121,6 +135,7 @@ def main() -> None:
     check_categories(placing, errors)
     check_wind(placing, errors)
     check_event_groups(groups, errors)
+    check_disciplines(groups, errors)
     check_table_2_2_matches_engine_file(placing, errors)
 
     if errors:

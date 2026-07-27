@@ -105,6 +105,16 @@ EVENT_GROUP_ANCHORS = {
     "Women's Javelin Throw": {"mainEvent": "Javelin Throw", "similarEvents": []},
 }
 
+# Long discipline names, as the World Athletics result feeds spell them. Verified
+# live on 2026-07-27 from real ranking calculations. A group must at minimum
+# recognise its own main event, or every result for it gets silently dropped.
+EXPECTED_DISCIPLINES = {
+    "Men's High Jump": ["High Jump"],
+    "Women's High Jump": ["High Jump"],
+    "Men's 800m": ["800 Metres"],
+    "Men's 1500m": ["1500 Metres", "1500 Metres Short Track"],
+}
+
 # --- Table 2.11: competition categories -------------------------------------
 EXPECTED_CATEGORY_CODES = ["OW", "DF", "GW", "GL", "A", "B", "C", "D", "E", "F"]
 
