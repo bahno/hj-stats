@@ -28,7 +28,8 @@ describe('placingTableFor', () => {
 
   it('uses Table 2.9 for a 10,000m final but 2.10 for a 10km road race', () => {
     expect(placingTableFor(tenK, '10,000 Metres', 'final', 'OW')).toBe('2.9');
-    expect(placingTableFor(tenK, '10km Road Race', 'final', 'OW')).toBe('2.10');
+    // The feed's own name for the discipline, not Table 2.12's short label.
+    expect(placingTableFor(tenK, '10 Kilometres Road', 'final', 'OW')).toBe('2.10');
   });
 
   it('picks the round-before-final table by field size', () => {

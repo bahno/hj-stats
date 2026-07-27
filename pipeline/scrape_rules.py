@@ -63,7 +63,9 @@ EVENT_GROUP_TABLES = {
     "10000m": {
         "final": "2.9",
         "beforeFinal": {"max9": "2.3", "min10": "2.4"},
-        "byDiscipline": {"10km Road Race": {"final": "2.10"}},
+        # Keyed by the long discipline name the result feeds emit, not Table
+        # 2.12's short label "10km Road Race", which nothing matches on.
+        "byDiscipline": {"10 Kilometres Road": {"final": "2.10"}},
     },
     "default": {"final": "2.2", "beforeFinal": {"max9": "2.3", "min10": "2.4"}},
 }

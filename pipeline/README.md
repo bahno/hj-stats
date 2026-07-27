@@ -11,9 +11,17 @@ pip install -r requirements.txt
 ## Ranking rules (placing scores, event groups, categories, wind)
 
 ```bash
-python scrape_rules.py    # writes placing_tables.json, event_groups.json, placing_points.json
-python verify_rules.py    # checks the output against by-eye anchors; non-zero on mismatch
+python scrape_rules.py        # writes placing_tables.json, event_groups.json, placing_points.json
+python harvest_disciplines.py # adds each group's long discipline names to event_groups.json
+python verify_rules.py        # checks the output against by-eye anchors; non-zero on mismatch
 ```
+
+Run them in that order. `scrape_rules.py` **overwrites** `event_groups.json` from the
+rules page alone, which drops the `disciplines` arrays; `harvest_disciplines.py` puts
+them back by reading real ranking calculations off the live gateway. Re-running the
+scraper without the harvester leaves every group with no discipline names, and
+`verify_rules.py` will say so. The harvester takes about ten minutes at the default
+sample size.
 
 Ground truth is `https://worldathletics.org/world-ranking-rules/track-field-events-<year>`.
 
