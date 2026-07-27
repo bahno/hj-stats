@@ -1,7 +1,11 @@
+import type { EventGroup } from '../data/events';
 import type { CategoryCode } from '../data/types';
 import { placingPoints } from './data';
 import { parseWaDate } from './dates';
+import { placingPointsFor } from './placing';
+import { advancedToFinal, classifyRounds } from './rounds';
 import { placingScore } from './score';
+import { isInWindow, type RankingWindow } from './window';
 
 /**
  * Reconstructing the ranking's counting set from an athlete's *full* result list — used to
@@ -11,9 +15,10 @@ import { placingScore } from './score';
  * re-derive the whole pool from the profile results (see data/athleteResultsApi.ts) and
  * pick up where the counting set leaves off.
  *
- * Two rules reproduce the official counting set exactly (verified against live men's HJ
- * data, 2026-07): only final rounds count (qualification rounds carry a heat placing that
- * would otherwise inflate their score), and only results inside the ranking window count.
+ * Two rules reproduce the official counting set (verified against live men's HJ data,
+ * 2026-07): a result scores its mark points plus whatever the placing tables award for the
+ * round it was (engine/placing.ts, engine/rounds.ts), and only results inside the ranking
+ * window count (engine/window.ts).
  */
 
 /** The minimum a result needs to be scored the same way the ranking does. */
@@ -75,45 +80,37 @@ export function countingKey(r: ScorableResult & { date: string }): string {
 }
 
 /**
- * Whether a result is a legal High Jump final. The `race` code is `F` for a single final,
- * but meets split into flights/sections label them `F1`, `F2`, … (common at NCAA/collegiate
- * meets) — all are finals. Qualification rounds are `Q`/`Q1`/`Q2` (see `candidateScore`).
+ * Whether a result belongs to this event group at all. An athlete's profile carries
+ * every discipline they have ever contested, and an event group spans several of them
+ * (the 1500m ranking counts indoor 1500m results too), so membership is a set lookup
+ * against the group's harvested discipline names — never a single string comparison.
  */
-export function isFinalResult(r: RankableResult): boolean {
-  return r.discipline === 'High Jump' && r.race.startsWith('F') && !r.notLegal;
+export function isCountableResult(r: RankableResult, group: EventGroup): boolean {
+  return group.disciplines.includes(r.discipline) && !r.notLegal;
 }
 
 /**
- * WorldAthletics placing points for a qualification round when the athlete *advanced* to the
- * final ("Q or q to Final"), by competition category — the ≥10-finalist column of WA's
- * qualification placing table. Championship High Jump finals (OW, and the indoor GW tier) run
- * ≥10 competitors, so this column is the right one; a non-advancing round (placed by its own
- * qualification position) or a category not listed here isn't scored (see `candidateScore`).
- * Verified against live counting sets: Hrubá's Tokyo Q2 (1140+70=1210) and Doroshchuk's Tokyo
- * Q1 (1135+70=1205) both reproduce WA exactly.
+ * Score every result that belongs to the group: mark points (given by World Athletics)
+ * plus placing points (derived from the tables). Rounds are classified across the whole
+ * set at once, because whether a round counts as "the round before the Final" depends on
+ * what else the athlete contested at that competition — see engine/rounds.ts.
  */
-const QUAL_TO_FINAL_PLACING: Record<string, number> = { OW: 70, DF: 46, GW: 35, GL: 28 };
-
-/**
- * A result's counting score as a substitute candidate, or `null` if it isn't one:
- *  - a legal High Jump final scores `resultScore + placingScore(category, place)`;
- *  - a qualification round scores `resultScore + qualToFinal[category]`, but only when it's a
- *    championship-tier round the athlete advanced from (a final at the same competition is in
- *    `finalCompIds`) — otherwise its placing isn't reliably derivable and it's skipped.
- */
-export function candidateScore(r: RankableResult, finalCompIds: Set<string>): number | null {
-  if (r.discipline !== 'High Jump' || r.notLegal) return null;
-  if (r.race.startsWith('F')) return combinedScore(r); // final (F, or a flight F1/F2/…)
-  if (!r.race.startsWith('Q')) return null; // not a final or qualification round
-  const qualPlacing = QUAL_TO_FINAL_PLACING[r.category];
-  if (qualPlacing === undefined || r.competitionId === undefined || !finalCompIds.has(r.competitionId)) {
-    return null;
-  }
-  return r.resultScore + qualPlacing;
+export function scoreResults(results: RankableResult[], group: EventGroup): ScoredResult[] {
+  const mine = results.filter((r) => isCountableResult(r, group));
+  const rounds = classifyRounds(mine);
+  return mine.map((r) => ({
+    ...r,
+    score: r.resultScore + placingPointsFor({
+      group,
+      discipline: r.discipline,
+      category: r.category as CategoryCode,
+      round: rounds.get(r) ?? 'other',
+      place: parsePlace(r.place),
+      advanced: advancedToFinal(r, mine),
+    }),
+    t: parseWaDate(r.date),
+  }));
 }
-
-/** The number of results the High Jump ranking averages. */
-export const COUNTING_RESULTS = 5;
 
 /** One of the official counting results: its identity and its exact (WA-given) score. */
 export interface CountingEntry {
@@ -139,29 +136,21 @@ export function allCountingInWindow(
 }
 
 /**
- * Candidate "next best" results, best-to-worst: scorable results inside the window (finals,
- * plus advancing championship qualification rounds — see `candidateScore`) that aren't already
- * counting and don't out-score the counting set. The `cap` (the lowest counting score) keeps
- * this safe without perfectly reproducing WA's window: a genuine 6th is always ≤ the 5th, so
- * anything above the cap is either already counting or a boundary result WA hasn't counted yet.
+ * Candidate "next best" results, best-to-worst: scorable results inside the window that
+ * aren't already counting and don't out-score the counting set. The `cap` (the lowest
+ * counting score) keeps this safe without perfectly reproducing WA's window: a genuine
+ * 6th is always ≤ the 5th, so anything above the cap is either already counting or a
+ * boundary result WA hasn't counted yet.
  */
 export function substitutePool(
   results: RankableResult[],
-  startMs: number,
-  endMs: number,
+  group: EventGroup,
+  window: RankingWindow,
   countingKeys: Set<string>,
   cap: number,
 ): ScoredResult[] {
-  const finalCompIds = new Set(
-    results.filter(isFinalResult).map((r) => r.competitionId).filter((id): id is string => id !== undefined),
-  );
-  return results
-    .map((r) => {
-      const score = candidateScore(r, finalCompIds);
-      return score === null ? null : { ...r, score, t: parseWaDate(r.date) };
-    })
-    .filter((r): r is ScoredResult => r !== null)
-    .filter((r) => Number.isFinite(r.t) && r.t >= startMs && r.t <= endMs)
+  return scoreResults(results, group)
+    .filter((r) => isInWindow(r, window))
     .filter((r) => !countingKeys.has(countingKey(r)) && r.score <= cap)
     .sort((a, b) => b.score - a.score || b.t - a.t);
 }
