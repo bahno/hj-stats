@@ -14,10 +14,10 @@ export function ScoreVsHeightChart({
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e2733" />
-        <XAxis dataKey="height" stroke="#8b949e" />
-        <YAxis stroke="#8b949e" />
-        <Tooltip contentStyle={{ background: '#0d1117', border: '1px solid #1e2733' }} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+        <XAxis dataKey="height" stroke="var(--muted)" />
+        <YAxis stroke="var(--muted)" />
+        <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)' }} />
         {categories.map((c, i) => (
           <Line key={c} type="monotone" dataKey={c} stroke={COLORS[i % COLORS.length]} dot={false} />
         ))}
