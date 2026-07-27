@@ -9,6 +9,8 @@ import { AccountPage } from './auth/AccountPage';
 import { PasswordRecovery } from './auth/PasswordRecovery';
 import { isAuthEnabled } from './lib/supabase';
 import { FavoritesProvider } from './hooks/FavoritesContext';
+import { ThemeProvider } from './hooks/ThemeContext';
+import { ThemeToggle } from './components/ThemeToggle';
 
 function UserIcon() {
   return (
@@ -80,6 +82,7 @@ function Shell() {
       {!recovering && (
         <>
           <div className="account-corner">
+            <ThemeToggle />
             <AccountSlot
               active={view === 'account'}
               onOpenAccount={() => setView('account')}
@@ -97,10 +100,12 @@ function Shell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <FavoritesProvider>
-        <Shell />
-      </FavoritesProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <FavoritesProvider>
+          <Shell />
+        </FavoritesProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

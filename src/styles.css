@@ -1631,6 +1631,9 @@ h2 {
   top: 20px;
   right: 16px;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Brand mark, mirroring .account-corner on the left. Matching the account
