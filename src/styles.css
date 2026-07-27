@@ -21,6 +21,27 @@
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
+/* Light theme: same-hue tokens as :root above, re-tuned (mostly darkened)
+   so text/status colors clear roughly AA contrast against a white panel. */
+:root[data-theme="light"] {
+  --bg: #f4f6f7;
+  --panel: #ffffff;
+  --line: #d8dee1;
+  --text: #14181a;
+  --muted: #56635f;
+  --accent: #1a56db;
+  --accent-rgb: 26 86 219;
+  --men: #1a56db;
+  --women: #be185d;
+  --pos: #15803d;
+  --pos-rgb: 21 128 61;
+  --neg: #b91c1c;
+  --neg-rgb: 185 28 28;
+  --gold: #b45309;
+  --silver: #64748b;
+  --bronze: #7c4a2d;
+}
+
 * {
   box-sizing: border-box;
 }
