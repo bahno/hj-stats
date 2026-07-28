@@ -33,7 +33,7 @@ import {
   type CountingEntry,
 } from '../engine/counting';
 import { DEFAULT_EVENT_SLUG, findEventGroup } from '../data/events';
-import { rankingWindow } from '../engine/window';
+import { fixedPeriodWindow, rankingWindow } from '../engine/window';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
@@ -616,15 +616,18 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
     // Exclude the counting results by a place-independent key (a qual's place drifts between
     // the calc and profile feeds), so an already-counting result can't reappear as a substitute.
     const keys = new Set(displayedResults.map(countingKey));
-    // Road rankings use Birmingham's fixed first/last ranking day, so the bounds come from
-    // activeWindow; only the Area Championships allowance is taken from the group's window.
-    const window = {
-      ...rankingWindow(group, activeWindow.end),
-      startMs: activeWindow.start,
-      endMs: activeWindow.end,
-    };
+    // Road runs on Birmingham's own published qualification period, which is fixed and
+    // admits no Area Championships allowance. World and European rankings keep the rolling
+    // ranking period's bounds from activeWindow plus that allowance.
+    const window = onRoad
+      ? fixedPeriodWindow(activeWindow.start, activeWindow.end)
+      : {
+          ...rankingWindow(group, activeWindow.end),
+          startMs: activeWindow.start,
+          endMs: activeWindow.end,
+        };
     return substitutePool(allResults, group, window, keys, cap);
-  }, [allResults, windowValid, activeWindow, displayedResults, cap, gender]);
+  }, [allResults, windowValid, activeWindow, displayedResults, cap, gender, onRoad, group]);
 
   // Offer replacement only when the window is sound: valid bounds and every official counting
   // result sits inside it (a wrong rank date would put one outside and make the 6th unreliable).

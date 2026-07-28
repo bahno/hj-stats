@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findEventGroup } from '../data/events';
 import { parseWaDate } from './dates';
-import { isInWindow, rankingWindow } from './window';
+import { fixedPeriodWindow, isInWindow, rankingWindow } from './window';
 
 const hj = findEventGroup('high-jump', 'men')!;
 const tenK = findEventGroup('10000m', 'men')!;
@@ -52,5 +52,28 @@ describe('isInWindow', () => {
 
   it('rejects an unparseable date rather than silently including it', () => {
     expect(isInWindow({ date: 'nonsense', category: 'A' }, w)).toBe(false);
+  });
+});
+
+describe('fixedPeriodWindow', () => {
+  // Birmingham 2026's published qualification period, quoted identically for the
+  // entry-standard and the world-ranking route.
+  const w = fixedPeriodWindow(parseWaDate('27 JUL 2025'), parseWaDate('26 JUL 2026'));
+
+  it('keeps the published bounds', () => {
+    expect(w.startMs).toBe(parseWaDate('27 JUL 2025'));
+    expect(w.endMs).toBe(parseWaDate('26 JUL 2026'));
+  });
+
+  it('excludes an Area Championships result the published period predates', () => {
+    // The same 08 JUN 2024 result that the rolling ranking window admits. A fixed
+    // qualification period is absolute, so it must not come back in here.
+    const result = { date: '08 JUN 2024', category: 'GL' };
+    expect(isInWindow(result, rankingWindow(hj, rankDate))).toBe(true);
+    expect(isInWindow(result, w)).toBe(false);
+  });
+
+  it('still admits a result inside the period', () => {
+    expect(isInWindow({ date: '08 JUN 2026', category: 'GL' }, w)).toBe(true);
   });
 });

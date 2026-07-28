@@ -44,6 +44,17 @@ export function rankingWindow(group: EventGroup, rankDateMs: number): RankingWin
   };
 }
 
+/**
+ * A window with fixed, published bounds and no Area Championships allowance: a
+ * competition's own qualification period rather than a rolling ranking period. Birmingham
+ * 2026 publishes 27 JUL 2025 - 26 JUL 2026 and quotes it identically for the entry-standard
+ * and the world-ranking route, so a 2024 Area Championships result the period excludes must
+ * not be let back in. The allowance widens a ranking period, not a qualification period.
+ */
+export function fixedPeriodWindow(startMs: number, endMs: number): RankingWindow {
+  return { startMs, endMs, areaChampionshipsFromMs: startMs };
+}
+
 /** Whether a result is eligible to count in this window. */
 export function isInWindow(
   result: { date: string; category: string },
