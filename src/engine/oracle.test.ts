@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { findEventGroup } from '../data/events';
-import { countingKey, parseWaDate, scoreResults } from './counting';
+import { byCountingOrder, countingKey, parseWaDate, scoreResults } from './counting';
 import { isInWindow, rankingWindow } from './window';
 
 const fixtures = import.meta.glob('./__fixtures__/oracle/*.json', { eager: true }) as Record<
@@ -41,17 +41,21 @@ const entries = Object.values(fixtures).map((m) => m.default);
 
 /**
  * Fixtures whose counting set we reconstruct result-for-result but *select* differently,
- * kept as `it.fails` so the gap stays visible instead of silently disappearing.
+ * kept as `it.fails` so the gap stays visible instead of silently disappearing. Keyed by
+ * athlete, since a group can have more than one fixture.
  *
- * triple-jump-men: Pichardo's 5th and 6th results tie exactly at 1244 — the Tokyo 2025
- * qualification (17 SEP 2025, mark score 1174 + 70 placing) and the Rome 2024 European
- * Championships qualification (09 JUN 2024, mark score 1216 + 28). World Athletics counts
- * the older, Area-Championships one. That contradicts the newest-first tie-break that
- * `substitutePool` uses and that the other 35 fixtures confirm, and it fits a "higher mark
- * score wins a tie" rule — but on a single observation, so the rule is not implemented
- * rather than guessed at.
+ * Pichardo's triple-jump-men entry used to live here, an exact 1244 tie between his Tokyo
+ * 2025 and Rome 2024 qualifications. It is resolved: `byCountingOrder` now breaks a tied
+ * score by mark score, on 7 of 7 supporting observations.
+ *
+ * Aleksandra ZAUCHA is a different and still-unexplained class: World Athletics omits her
+ * 11 JUL 2026 result scoring 1027 and counts a 27 JUN 2026 one scoring 1005 instead, so
+ * they are leaving a strictly higher-scoring result out of the average. Juan Antonio PÉREZ
+ * (Men's 10,000m) shows the same shape, where a 1107 European Running Championships road
+ * result is passed over for a 1103. Some eligibility rule we do not implement is at work;
+ * two observations is not enough to name it, so it is recorded rather than guessed at.
  */
-const KNOWN_SELECTION_DIVERGENCE = new Set(['triple-jump-men']);
+const KNOWN_SELECTION_DIVERGENCE = new Set(['Aleksandra ZAUCHA']);
 
 describe('reconstruction matches World Athletics', () => {
   it('has fixtures to replay', () => {
@@ -93,12 +97,12 @@ describe('reconstruction matches World Athletics', () => {
 
       // Scoring the results World Athletics chose is only half the claim: substitutePool
       // also has to *choose* them out of the athlete's whole result list. Same ordering it
-      // uses — best score first, newest first on a tie.
-      const selects = KNOWN_SELECTION_DIVERGENCE.has(`${slug}-${gender}`) ? it.fails : it;
+      // uses (byCountingOrder): best score first, then higher mark score, then newest.
+      const selects = KNOWN_SELECTION_DIVERGENCE.has(fixture.athlete.name) ? it.fails : it;
       selects('selects the same counting set World Athletics did', () => {
         const pool = scoreResults(fixture.results, group)
           .filter((r) => isInWindow(r, window))
-          .sort((a, b) => b.score - a.score || b.t - a.t);
+          .sort(byCountingOrder);
         const ours = pool.slice(0, fixture.calculation.results.length).map(countingKey).sort();
         const theirs = fixture.calculation.results.map(countingKey).sort();
         expect(ours).toEqual(theirs);

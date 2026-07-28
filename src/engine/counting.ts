@@ -48,6 +48,23 @@ export interface ScoredResult extends RankableResult {
 
 export { parseWaDate, oneYearEarlier } from './dates';
 
+/**
+ * Counting-set order: best combined score first.
+ *
+ * On a tied score the higher mark score wins. Measured across 330 captured ranking
+ * calculations sampled down to ranking place 1101: of the 15 ties at a counting-set
+ * boundary, the 7 whose mark scores differ went to the higher mark score every time, with
+ * no counterexample. Pichardo's Rome 2024 qualification (mark 1216) over his Tokyo 2025
+ * one (mark 1174) is one of them, and it is why date alone was never the rule.
+ *
+ * When the mark scores tie as well, World Athletics' own choice is not consistent (5 of
+ * those 8 took the newer result, 2 the older, 1 counted both), so newest-first stays as a
+ * stable last resort rather than a rule anyone should trust.
+ */
+export function byCountingOrder(a: ScoredResult, b: ScoredResult): number {
+  return b.score - a.score || b.resultScore - a.resultScore || b.t - a.t;
+}
+
 /** First integer in a place string ("=2." -> 2, "4." -> 4). 0 when there's no finish position. */
 export function parsePlace(place: string): number {
   const m = String(place).match(/\d+/);
@@ -189,7 +206,7 @@ export function substitutePool(
   return bestPerRound(scoreResults(results, group))
     .filter((r) => isInWindow(r, window))
     .filter((r) => !countingKeys.has(countingKey(r)) && r.score <= cap)
-    .sort((a, b) => b.score - a.score || b.t - a.t);
+    .sort(byCountingOrder);
 }
 
 export interface Recount {
