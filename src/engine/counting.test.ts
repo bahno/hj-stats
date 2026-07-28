@@ -264,8 +264,10 @@ describe('isCountableResult', () => {
     expect(isCountableResult(sprint, sprintGroup)).toBe(sprintGroup.disciplines.includes('60 Metres'));
   });
 
-  it('rejects a result flagged not legal', () => {
-    expect(isCountableResult(result({ notLegal: true }), hjGroup)).toBe(false);
+  // Was asserted the other way round until the oracle fixtures disproved it: World
+  // Athletics counts wind-aided marks in the rankings (see isCountableResult).
+  it('accepts a result flagged not legal', () => {
+    expect(isCountableResult(result({ notLegal: true }), hjGroup)).toBe(true);
   });
 });
 

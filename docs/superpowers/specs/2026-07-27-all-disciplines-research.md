@@ -240,3 +240,57 @@ the main defence against silently mis-scoring 17 new events.
    Table 2.12, or harvested from observed `disciplineList` values. Harvesting
    yields exactly the long names the feeds use; Table 2.12 is authoritative but
    uses short names. A cross-check of both is the likely answer.
+
+## 6. Oracle outcome (2026-07-28)
+
+36 fixtures — every T&F event group, both genders — captured at rank date
+21 JUL 2026 by `scripts/capture-oracle-fixtures.mjs` and replayed by
+`src/engine/oracle.test.ts`. Answers to the open questions above, from the data:
+
+**All 36 groups reproduce World Athletics' counting set result-for-result**: every
+one of the 166 official counting results is found in the profile feed and scored to
+WA's exact `performanceScore`. 35 of 36 also *select* the same five out of the
+athlete's full result list. The exception is noted below.
+
+**Q2 — Tables 2.3 vs 2.4: the assumption held, and the data discriminates.** Ten
+counting results are rounds before the final. Five are track semi-finals (100m W,
+100mH W, 200m M, 200m W, 800m M), all category OW, all awarded 100 placing points —
+Table 2.3's "Q to Final" value; Table 2.4's is 70. Four are field qualifications
+(hammer W, javelin M, javelin W at OW → 70; triple jump M at GL → 28) — Table 2.4's
+values; Table 2.3's are 100 and 50. So track really is `max9` and field really is
+`min10`, confirmed on 7 distinct event groups. `finalFieldSizeFor` stays a
+`mark.kind` test; no per-group lookup is needed. Untested: the 5000m/3000mSC/10000m
+before-final tables (2.6/2.7/2.8) — no fixture has a non-final counting result in
+those groups.
+
+**Q3 — the Area Championships allowance is load-bearing.** 19 counting results
+across 18 of the 36 fixtures are June 2024 GL results (European Championships,
+Rome) that fall outside the plain 12-month window. Without
+`areaChampionshipsFromMs` half the fixtures would fail. The overweighting rule is
+still unimplemented and still unexposed — no fixture needed it.
+
+**`notLegal` was a real bug, now fixed.** `isCountableResult` dropped results
+flagged `notLegal`. World Athletics counts them: Jacobs' wind-aided 9.67 and 9.84
+(Eisenstadt, 01 JUL 2026) and Španović's 14.43 (Serbian Championships,
+02 AUG 2025) are in their own counting sets. The flag means "ineligible for records
+and lists", not "ineligible for the ranking". None of the other 22 `notLegal` rows
+in the fixtures even reaches its athlete's worst counting score, so no evidence
+points the other way.
+
+**Known divergence — tie-break order.** Men's triple jump is the one group whose
+selection we do not reproduce. Pichardo's 5th and 6th results tie exactly at 1244:
+Tokyo 2025 qualification (17 SEP 2025, 1174 + 70) and Rome 2024 European
+Championships qualification (09 JUN 2024, 1216 + 28). WA counts the older one. Our
+newest-first tie-break — which the other 35 fixtures confirm — picks the Tokyo one.
+A "higher mark score wins the tie" rule fits every fixture, but it rests on this
+single observation, so it is left unimplemented and the case is marked `it.fails`
+rather than guessed at. Worth re-checking when the fixtures are refreshed.
+
+**Not settled by this data.** Blank `race` codes (see `engine/rounds.ts`, which
+classifies them `other` and scores them 0) appear in none of the 1716 captured
+profile rows — top-ranked athletes' meetings all report round codes, so the
+fixtures cannot confirm or refute the concern. The `monthsEarlier` day-of-month
+overflow is real (31 AUG minus 18 months yields 3 March, not 28 February) but
+unreachable here: every fixture shares rank date 21 JUL 2026. The Road/Birmingham
+`substitutePool` allowance is out of this plan's Track & Field scope and no fixture
+touches it.

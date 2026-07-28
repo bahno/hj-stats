@@ -1,0 +1,253 @@
+{
+  "group": {
+    "slug": "triple-jump",
+    "gender": "men",
+    "label": "Men's Triple Jump"
+  },
+  "athlete": {
+    "name": "Pedro PICHARDO",
+    "urlSlug": "portugal/pedro-pichardo-14412588",
+    "athleteId": 14412588
+  },
+  "rankDate": "21 JUL 2026",
+  "rankingScore": 1379,
+  "calculation": {
+    "birthDate": "30 JUN 1993",
+    "averagePerformanceScore": 1379,
+    "disciplineList": [
+      "Triple Jump"
+    ],
+    "results": [
+      {
+        "date": "19 SEP 2025",
+        "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+        "discipline": "Triple Jump",
+        "category": "OW",
+        "race": "F",
+        "place": "1.",
+        "mark": "17.91",
+        "resultScore": 1262,
+        "placingScore": 260,
+        "performanceScore": 1522
+      },
+      {
+        "date": "11 JUN 2024",
+        "competition": "European Athletics Championships, Stadio Olimpico, Roma",
+        "discipline": "Triple Jump",
+        "category": "GL",
+        "race": "F",
+        "place": "2.",
+        "mark": "18.04",
+        "resultScore": 1279,
+        "placingScore": 105,
+        "performanceScore": 1384
+      },
+      {
+        "date": "19 JUN 2026",
+        "competition": "Doha Meeting, Suhaim bin Hamad Stadium, Doha",
+        "discipline": "Triple Jump",
+        "category": "GW",
+        "race": "F",
+        "place": "1.",
+        "mark": "17.71",
+        "resultScore": 1240,
+        "placingScore": 140,
+        "performanceScore": 1380
+      },
+      {
+        "date": "28 AUG 2025",
+        "competition": "Weltklasse Zürich, Letzigrund, Zürich",
+        "discipline": "Triple Jump",
+        "category": "DF",
+        "race": "F",
+        "place": "2.",
+        "mark": "17.47",
+        "resultScore": 1215,
+        "placingScore": 150,
+        "performanceScore": 1365
+      },
+      {
+        "date": "09 JUN 2024",
+        "competition": "European Athletics Championships, Stadio Olimpico, Roma",
+        "discipline": "Triple Jump",
+        "category": "GL",
+        "race": "Q",
+        "place": "2.",
+        "mark": "17.48",
+        "resultScore": 1216,
+        "placingScore": 28,
+        "performanceScore": 1244
+      }
+    ]
+  },
+  "results": [
+    {
+      "date": "19 JUN 2026",
+      "competition": "Doha Meeting, Suhaim bin Hamad Stadium, Doha - Diamond Discipline",
+      "competitionId": "7214015",
+      "discipline": "Triple Jump",
+      "category": "GW",
+      "race": "F",
+      "place": "1.",
+      "mark": "17.71",
+      "notLegal": false,
+      "resultScore": 1240
+    },
+    {
+      "date": "03 MAY 2025",
+      "competition": "Yangtze River Delta Athletics Diamond Gala, China Textile City Sports Centre, Shaoxing/Keqiao - Diamond Discipline",
+      "competitionId": "7199680",
+      "discipline": "Triple Jump",
+      "category": "GW",
+      "race": "F",
+      "place": "1.",
+      "mark": "17.03",
+      "notLegal": false,
+      "resultScore": 1168
+    },
+    {
+      "date": "12 JUN 2025",
+      "competition": "Oslo Bislett Games, Bislett Stadion, Oslo - Diamond Discipline",
+      "competitionId": "7203939",
+      "discipline": "Triple Jump",
+      "category": "GW",
+      "race": "F",
+      "place": "2.",
+      "mark": "17.06",
+      "notLegal": false,
+      "resultScore": 1171
+    },
+    {
+      "date": "17 JUN 2025",
+      "competition": "5° Meeting Internazionale ATL-Etica - 4° Meeting del Talento giovanile Atl-Etica San Vendemiano, Stadio Comunale, San Vendemiano",
+      "competitionId": "7228866",
+      "discipline": "Triple Jump",
+      "category": "F",
+      "race": "F",
+      "place": "1.",
+      "mark": "16.67",
+      "notLegal": false,
+      "resultScore": 1129
+    },
+    {
+      "date": "28 AUG 2025",
+      "competition": "Weltklasse Zürich, Letzigrund, Zürich - Diamond Discipline",
+      "competitionId": "7199686",
+      "discipline": "Triple Jump",
+      "category": "DF",
+      "race": "F",
+      "place": "2.",
+      "mark": "17.47",
+      "notLegal": false,
+      "resultScore": 1215
+    },
+    {
+      "date": "17 SEP 2025",
+      "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+      "competitionId": "7190593",
+      "discipline": "Triple Jump",
+      "category": "OW",
+      "race": "Q2",
+      "place": "2.",
+      "mark": "17.09",
+      "notLegal": false,
+      "resultScore": 1174
+    },
+    {
+      "date": "19 SEP 2025",
+      "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+      "competitionId": "7190593",
+      "discipline": "Triple Jump",
+      "category": "OW",
+      "race": "F",
+      "place": "1.",
+      "mark": "17.91",
+      "notLegal": false,
+      "resultScore": 1262
+    },
+    {
+      "date": "20 APR 2024",
+      "competition": "Wanda Diamond League Xiamen, Egret Stadium, Xiamen - Diamond Discipline",
+      "competitionId": "7174050",
+      "discipline": "Triple Jump",
+      "category": "GW",
+      "race": "F",
+      "place": "1.",
+      "mark": "17.51",
+      "notLegal": false,
+      "resultScore": 1219
+    },
+    {
+      "date": "19 MAY 2024",
+      "competition": "Meeting International Mohammed VI d’Athlétisme de Rabat/Marrakech, Le Grand Stade, Marrakech - Diamond Discipline",
+      "competitionId": "7174052",
+      "discipline": "Triple Jump",
+      "category": "GW",
+      "race": "F",
+      "place": "2.",
+      "mark": "16.92",
+      "notLegal": false,
+      "resultScore": 1157
+    },
+    {
+      "date": "09 JUN 2024",
+      "competition": "European Athletics Championships, Stadio Olimpico, Roma",
+      "competitionId": "7158244",
+      "discipline": "Triple Jump",
+      "category": "GL",
+      "race": "Q2",
+      "place": "1.",
+      "mark": "17.48",
+      "notLegal": false,
+      "resultScore": 1216
+    },
+    {
+      "date": "11 JUN 2024",
+      "competition": "European Athletics Championships, Stadio Olimpico, Roma",
+      "competitionId": "7158244",
+      "discipline": "Triple Jump",
+      "category": "GL",
+      "race": "F",
+      "place": "2.",
+      "mark": "18.04",
+      "notLegal": false,
+      "resultScore": 1279
+    },
+    {
+      "date": "07 AUG 2024",
+      "competition": "The XXXIII Olympic Games, Stade de France, Paris",
+      "competitionId": "7153115",
+      "discipline": "Triple Jump",
+      "category": "OW",
+      "race": "Q2",
+      "place": "1.",
+      "mark": "17.44",
+      "notLegal": false,
+      "resultScore": 1212
+    },
+    {
+      "date": "09 AUG 2024",
+      "competition": "The XXXIII Olympic Games, Stade de France, Paris",
+      "competitionId": "7153115",
+      "discipline": "Triple Jump",
+      "category": "OW",
+      "race": "F",
+      "place": "2.",
+      "mark": "17.84",
+      "notLegal": false,
+      "resultScore": 1254
+    },
+    {
+      "date": "14 SEP 2024",
+      "competition": "Memorial van Damme, Boudewijnstadion, Bruxelles - Diamond Discipline",
+      "competitionId": "7174062",
+      "discipline": "Triple Jump",
+      "category": "DF",
+      "race": "F",
+      "place": "1.",
+      "mark": "17.33",
+      "notLegal": false,
+      "resultScore": 1200
+    }
+  ]
+}

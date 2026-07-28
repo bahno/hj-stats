@@ -84,9 +84,16 @@ export function countingKey(r: ScorableResult & { date: string }): string {
  * every discipline they have ever contested, and an event group spans several of them
  * (the 1500m ranking counts indoor 1500m results too), so membership is a set lookup
  * against the group's harvested discipline names — never a single string comparison.
+ *
+ * `notLegal` is deliberately NOT a filter. It flags a mark as ineligible for records and
+ * lists (wind-aided, almost always), not ineligible for the ranking: the oracle fixtures
+ * show World Athletics counting three such results outright — Jacobs' wind-aided 9.67 and
+ * 9.84 at Eisenstadt (01 JUL 2026) and Španović's 14.43 at the Serbian Championships
+ * (02 AUG 2025) — and not one of the other 22 notLegal rows across the 36 fixtures even
+ * reaches its athlete's worst counting score, so there is no case pointing the other way.
  */
 export function isCountableResult(r: RankableResult, group: EventGroup): boolean {
-  return group.disciplines.includes(r.discipline) && !r.notLegal;
+  return group.disciplines.includes(r.discipline);
 }
 
 /**
