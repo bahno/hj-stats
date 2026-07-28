@@ -164,9 +164,14 @@ These are documented in the PR body and are NOT blockers for the UI work.
 
 ## Still out of scope
 
-- **Scoring tables** (mark to performance points). The user is doing this research themselves.
-  `pipeline/parse_scoring.py` currently extracts the high jump column only, via hardcoded PDF
-  page ranges.
+- **Wiring the scoring tables into the app.** The data itself is no longer missing:
+  `src/data/scoring_tables.json` now holds mark to performance points for all 36 event groups
+  (branch `worktree-scoring-tables`). Nothing reads it yet — the app still reads the
+  high-jump-only `scoring_table.json`, and `hasScoringTable` still gates the simulator to high
+  jump. Two decisions block the wiring, and neither is the parser's to make: the file is 1.1 MB
+  (222 kB gzipped) as one static import, so it may want splitting per event group behind a
+  dynamic import; and a mark picker for a timed event cannot be the high jump's `<select>` over
+  every mark in the table, because a 10,000m has 1400 of them.
 - **Overweighting** (only the latest OW/DF edition counts) - documented, not implemented.
 - Road running, race walking, combined events, cross country. Race walk slugs were never found in
   the EA ranking API.
