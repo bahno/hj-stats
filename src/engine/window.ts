@@ -27,10 +27,20 @@ export interface RankingWindow {
   areaChampionshipsFromMs: number;
 }
 
-/** Shift a UTC timestamp back by whole months, keeping the day of month. */
+/**
+ * Shift a UTC timestamp back by whole months, clamping to the last day of the target month.
+ *
+ * Keeping the day of month unconditionally lets JS normalise an impossible date forward: a
+ * 31 AUG 2026 rank date minus the 10,000m group's 18 months asks for 31 FEB 2025 and gets
+ * 03 MAR 2025, so the window opens three days late and silently drops eligible results.
+ */
 function monthsEarlier(ms: number, months: number): number {
   const d = new Date(ms);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - months, d.getUTCDate());
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() - months;
+  // Day 0 of the following month is the last day of this one.
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return Date.UTC(year, month, Math.min(d.getUTCDate(), lastDay));
 }
 
 export function rankingWindow(group: EventGroup, rankDateMs: number): RankingWindow {

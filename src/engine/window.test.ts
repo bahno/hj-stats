@@ -24,6 +24,49 @@ describe('rankingWindow', () => {
   });
 });
 
+/**
+ * Stepping back whole months must never roll into the following month. Keeping the day of
+ * month lets JS normalise an impossible date forward (31 FEB 2025 -> 03 MAR 2025), which
+ * opens the window days late and silently drops eligible results.
+ */
+describe('rankingWindow month-end clamping', () => {
+  it('clamps 18 months back from 31 AUG to the last day of February', () => {
+    const w = rankingWindow(tenK, parseWaDate('31 AUG 2026'));
+    expect(w.startMs).toBe(parseWaDate('28 FEB 2025'));
+  });
+
+  it('clamps to 29 February when the target month is in a leap year', () => {
+    const w = rankingWindow(tenK, parseWaDate('31 AUG 2025'));
+    expect(w.startMs).toBe(parseWaDate('29 FEB 2024'));
+  });
+
+  it('clamps a 31-day date landing in a 30-day month', () => {
+    // 31 MAR 2026 minus 18 months is September, which has 30 days.
+    expect(rankingWindow(tenK, parseWaDate('31 MAR 2026')).startMs).toBe(parseWaDate('30 SEP 2024'));
+    // And the 12-month group: 31 MAY 2026 minus 12 lands on 31 MAY 2025, no clamp needed.
+    expect(rankingWindow(hj, parseWaDate('31 MAY 2026')).startMs).toBe(parseWaDate('31 MAY 2025'));
+  });
+
+  it('clamps a 29 February rank date stepping back into a non-leap year', () => {
+    expect(rankingWindow(hj, parseWaDate('29 FEB 2028')).startMs).toBe(parseWaDate('28 FEB 2027'));
+  });
+
+  it('leaves a day of month that exists in the target month alone', () => {
+    // The ordinary case every fixture uses — unchanged.
+    expect(rankingWindow(hj, rankDate).startMs).toBe(parseWaDate('21 JUL 2025'));
+    expect(rankingWindow(tenK, rankDate).startMs).toBe(parseWaDate('21 JAN 2025'));
+    // 31 JUL minus 18 lands in January, which has 31 days.
+    expect(rankingWindow(tenK, parseWaDate('31 JUL 2026')).startMs).toBe(parseWaDate('31 JAN 2025'));
+  });
+
+  it('admits a result the un-clamped window would have dropped', () => {
+    const w = rankingWindow(tenK, parseWaDate('31 AUG 2026'));
+    // 01 MAR 2025 is inside either way; 28 FEB 2025 only survives the clamp.
+    expect(isInWindow({ date: '28 FEB 2025', category: 'A' }, w)).toBe(true);
+    expect(isInWindow({ date: '27 FEB 2025', category: 'A' }, w)).toBe(false);
+  });
+});
+
 describe('isInWindow', () => {
   const w = rankingWindow(hj, rankDate);
 
