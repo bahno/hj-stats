@@ -62,6 +62,14 @@ export function formatMark(value: number, spec: MarkSpec): string {
   return seconds.toFixed(spec.decimals);
 }
 
+/**
+ * The unit to append when displaying a mark. Times already carry their own notation
+ * ("9.87", "1:42.29", "2:04:03"), so a trailing "s" would only add noise.
+ */
+export function markSuffix(spec: MarkSpec): string {
+  return spec.kind === 'time' ? '' : ` ${spec.unit}`;
+}
+
 /** Whether `candidate` is a better performance than `incumbent`. Equal is not better. */
 export function isBetterMark(candidate: number, incumbent: number, spec: MarkSpec): boolean {
   return spec.betterIsHigher ? candidate > incumbent : candidate < incumbent;

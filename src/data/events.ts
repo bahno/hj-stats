@@ -110,3 +110,17 @@ export function findEventGroup(slug: string, gender: Gender): EventGroup | undef
 export function eventGroupsFor(gender: Gender): EventGroup[] {
   return EVENT_GROUPS.filter((g) => g.gender === gender);
 }
+
+/**
+ * The same event group in the other gender, for keeping a selection alive across a
+ * gender switch. Slugs match for all but the hurdles — men contest 110mH, women 100mH —
+ * so fall back to the same position in the other gender's list, which Table 2.12 orders
+ * identically for both.
+ */
+export function counterpartGroup(group: EventGroup, gender: Gender): EventGroup {
+  const direct = findEventGroup(group.slug, gender);
+  if (direct) return direct;
+  const from = eventGroupsFor(group.gender);
+  const to = eventGroupsFor(gender);
+  return to[from.indexOf(group)] ?? to[0];
+}

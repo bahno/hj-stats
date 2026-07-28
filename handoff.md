@@ -34,35 +34,46 @@ function takes it as a parameter.
 | `scripts/capture-oracle-fixtures.mjs` | captures WA payloads as committed fixtures |
 | `scripts/capture-deep-calculations.mjs` | surveys mid-table and lower-ranked athletes |
 
-**Verified state:** 40 test files / 413 tests pass, `npx tsc -b` exits 0, `npm run build`
+**Verified state:** 40 test files / 421 tests pass, `npx tsc -b` exits 0, `npm run build`
 succeeds, `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exit 0.
+(The 40/413 recorded here before the UI work was already off by a file - the tree held 39
+files / 411 tests at that commit.)
 
 ## What is next: the UI and storage plan
 
-**This plan does not exist yet. Write it before coding.** The engine handles 36 groups; nothing
-in the UI lets a user pick one. That gap is the whole job.
+The UI half is done (section 1). Storage and the poller are not, and they are the parts that
+can corrupt data rather than merely look wrong.
 
-### 1. Event selection in the UI
+### 1. Event selection in the UI - DONE
 
-Everything below is currently pinned to high jump on purpose, because event selection was
-explicitly out of scope for the engine plan:
+`src/components/inputs/EventGroupSelect.tsx` is a native select grouped into Track / Jumps /
+Throws, showing the 18 groups of the selected gender. `AthleteLookup` threads the chosen
+`EventGroup` (not a gender) through `ranking`, `roadToBirmingham`, `select` and `runLookup`, so
+the selected group and the gender can no longer disagree; the ranking and road caches are keyed
+`slug:gender`. The selected group travels with the result in `Found.group`, so changing the
+picker can't relabel an athlete already on screen. `counterpartGroup` in `src/data/events.ts`
+carries a selection across a gender switch, including the hurdles, whose slugs differ by gender
+(110mH / 100mH).
 
-- `src/components/AthleteLookup.tsx:203` - `fetchRanking(findEventGroup(DEFAULT_EVENT_SLUG, g)!.slug, g)`
-- `src/components/AthleteLookup.tsx:214` - `fetchRoadToBirmingham(findEventGroup(DEFAULT_EVENT_SLUG, g)!)`
-- `src/components/AthleteLookup.tsx:546` - `const group = findEventGroup(DEFAULT_EVENT_SLUG, gender)!`
-- `src/components/AthleteLookup.tsx:682` - the string `High Jump` is hardcoded in the display line
+Marks now render with `markSuffix(group.mark)` - " m" for heights and distances, nothing for
+times, since "9.67 s" reads worse than "9.67".
 
-Replace `DEFAULT_EVENT_SLUG` with a selected group threaded from a picker. `EVENT_GROUPS` is
-already sorted and labelled for exactly this. There is an existing input component convention in
-`src/components/inputs/` (`GenderToggle`, `RankingTypeToggle`, `CategorySelect`) - follow it
-rather than inventing a new control shape. 36 groups is too many for a toggle; it needs a select
-or a grouped list (track / jumps / throws).
+**The simulator is high-jump-only and is now gated, not hidden.** `scoring_table.json` holds one
+event, so `hasScoringTable(scoringTable, group)` decides whether `SimulateResult` renders at all;
+every other group gets a line saying its scoring table isn't loaded. That gate disappears on its
+own when the scoring-tables work lands. Until then, do not "generalize" the simulator - there is
+nothing to score against.
 
-Note `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5`, and
-`recomputeRanking` uses that constant rather than `EventGroup.countingResults`. Harmless today
-because every Track & Field group averages 5, so `events.ts` seeds the field from it. It becomes
-a real bug the moment a group with a different count is added (combined events use 2). Prefer
-threading `group.countingResults`.
+Two things deliberately left alone:
+
+- `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than
+  reading `EventGroup.countingResults`. It only runs behind the high-jump gate now, so threading
+  the field through today would be dead configurability. Do it when a group with a different
+  count (combined events use 2) actually becomes reachable.
+- **A favorite is still a person + gender, with no event group** (see the schema note below). A
+  favorite chip therefore searches whichever event is selected, mapped to the favorite's gender.
+  That is only right because athletes contest one group in practice. Fix it in the schema, not
+  by guessing a group in the UI.
 
 ### 2. Storage schema - this is the part that will bite
 

@@ -32,8 +32,17 @@ import {
   substitutePool,
   type CountingEntry,
 } from '../engine/counting';
-import { DEFAULT_EVENT_SLUG, findEventGroup } from '../data/events';
+import {
+  DEFAULT_EVENT_SLUG,
+  counterpartGroup,
+  findEventGroup,
+  type EventGroup,
+} from '../data/events';
+import { scoringTable } from '../engine/data';
+import { markSuffix } from '../engine/mark';
+import { hasScoringTable } from '../engine/marks';
 import { fixedPeriodWindow, rankingWindow } from '../engine/window';
+import { EventGroupSelect } from './inputs/EventGroupSelect';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
@@ -117,6 +126,9 @@ interface Found {
   athleteUrlSlug: string;
   nationality: string;
   gender: Gender;
+  /** The event group the lookup ran in — held with the result, like gender, so a
+   *  later change to the picker can't relabel an athlete already on screen. */
+  group: EventGroup;
   /**
    * null when the athlete has no World Ranking entry at all — e.g. qualified for
    * Birmingham purely by hitting the entry standard, without the 5 counting results a
@@ -164,6 +176,7 @@ function hitFromQualification(entry: QualificationEntry): Hit {
 
 export function AthleteLookup() {
   const [gender, setGender] = useState<Gender>('men');
+  const [group, setGroup] = useState<EventGroup>(() => findEventGroup(DEFAULT_EVENT_SLUG, 'men')!);
   const [rankingType, setRankingType] = useState<RankingType>('road')
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -181,38 +194,49 @@ export function AthleteLookup() {
   // one athlete's data under another's name.
   const requestId = useRef(0);
   useEffect(() => {
-    if (defaultGender) setGender(defaultGender);
+    if (!defaultGender) return;
+    setGender(defaultGender);
+    setGroup((g) => counterpartGroup(g, defaultGender));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultGender]);
 
-  // Ranking lists are cached per gender so repeated searches don't refetch.
-  // The TTL keeps a long-lived tab from showing last week's ranking forever.
+  // Ranking lists are cached per event group (gender included, since a group is
+  // one gender's) so repeated searches don't refetch. The TTL keeps a long-lived
+  // tab from showing last week's ranking forever.
   const CACHE_TTL_MS = 15 * 60 * 1000;
   const [cache] = useState(
-    () => new Map<Gender, { at: number; data: { rankDate: string; rows: RankingRow[] } }>(),
+    () => new Map<string, { at: number; data: { rankDate: string; rows: RankingRow[] } }>(),
   );
-  const [roadCache] = useState(() => new Map<Gender, { at: number; data: RoadToBirminghamData }>());
+  const [roadCache] = useState(() => new Map<string, { at: number; data: RoadToBirminghamData }>());
+
+  function cacheKey(grp: EventGroup): string {
+    return `${grp.slug}:${grp.gender}`;
+  }
 
   function fresh<T>(entry: { at: number; data: T } | undefined): T | null {
     return entry && Date.now() - entry.at < CACHE_TTL_MS ? entry.data : null;
   }
 
-  async function ranking(g: Gender) {
-    const hit = fresh(cache.get(g));
+  async function ranking(grp: EventGroup) {
+    const key = cacheKey(grp);
+    const hit = fresh(cache.get(key));
     if (hit) return hit;
-    const data = await fetchRanking(findEventGroup(DEFAULT_EVENT_SLUG, g)!.slug, g);
-    cache.set(g, { at: Date.now(), data });
+    const data = await fetchRanking(grp.slug, grp.gender);
+    cache.set(key, { at: Date.now(), data });
     return data;
   }
 
   // Road to Birmingham is undocumented and can fail/change shape independently of the
   // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
-  async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
-    const hit = fresh(roadCache.get(g));
+  // It also throws outright for a group Birmingham doesn't stage, which is a normal
+  // outcome now that all 36 groups are selectable, not an error worth surfacing.
+  async function roadToBirmingham(grp: EventGroup): Promise<RoadToBirminghamData | null> {
+    const key = cacheKey(grp);
+    const hit = fresh(roadCache.get(key));
     if (hit) return hit;
     try {
-      const data = await fetchRoadToBirmingham(findEventGroup(DEFAULT_EVENT_SLUG, g)!);
-      roadCache.set(g, { at: Date.now(), data });
+      const data = await fetchRoadToBirmingham(grp);
+      roadCache.set(key, { at: Date.now(), data });
       return data;
     } catch (e) {
       console.warn('Road to Birmingham fetch failed', e);
@@ -228,7 +252,8 @@ export function AthleteLookup() {
     return requestId.current === ticket;
   }
 
-  async function select(hit: Hit, g: Gender, ticket: number = nextTicket()) {
+  async function select(hit: Hit, grp: EventGroup, ticket: number = nextTicket()) {
+    const g = grp.gender;
     setStatus('loading');
     setCandidates([]);
     setFound(null);
@@ -237,8 +262,8 @@ export function AthleteLookup() {
         const row = hit.row;
         const [calc, list, road] = await Promise.all([
           fetchRankingCalculation(row.id),
-          ranking(g),
-          roadToBirmingham(g),
+          ranking(grp),
+          roadToBirmingham(grp),
         ]);
         const roadCalculationId = road
           ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
@@ -256,6 +281,7 @@ export function AthleteLookup() {
           athleteUrlSlug: row.athleteUrlSlug,
           nationality: row.nationality,
           gender: g,
+          group: grp,
           ranked: { row, calc, peers: list.rows },
           road,
           roadCalc,
@@ -265,13 +291,14 @@ export function AthleteLookup() {
         // No World Ranking entry — e.g. an entry-standard qualifier with too few counting
         // results for a ranking score. Everything we can show comes from the Road to
         // Birmingham qualification entry itself.
-        const road = await roadToBirmingham(g);
+        const road = await roadToBirmingham(grp);
         if (!isCurrent(ticket)) return;
         setFound({
           athlete: hit.athlete,
           athleteUrlSlug: hit.athleteUrlSlug,
           nationality: hit.nationality,
           gender: g,
+          group: grp,
           ranked: null,
           road,
           roadCalc: null,
@@ -286,13 +313,13 @@ export function AthleteLookup() {
     }
   }
 
-  async function runLookup(q: string, g: Gender, ticket: number = nextTicket()) {
+  async function runLookup(q: string, grp: EventGroup, ticket: number = nextTicket()) {
     setStatus('loading');
     setMessage('');
     setFound(null);
     setCandidates([]);
     try {
-      const [{ rows }, road] = await Promise.all([ranking(g), roadToBirmingham(g)]);
+      const [{ rows }, road] = await Promise.all([ranking(grp), roadToBirmingham(grp)]);
       const rankedHits = rows.filter((r) => matches(q, r.athlete)).map(hitFromRow);
       const rankedSlugs = new Set(rankedHits.map((h) => h.athleteUrlSlug));
       // Qualifiers with no World Ranking entry (e.g. by entry standard) are otherwise
@@ -305,9 +332,11 @@ export function AthleteLookup() {
       if (!isCurrent(ticket)) return; // a newer lookup superseded this one
       if (hits.length === 0) {
         setStatus('error');
-        setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking or Road to Birmingham list.`);
+        setMessage(
+          `No athlete matching "${q}" in the ${grp.label} ranking or Road to Birmingham list.`,
+        );
       } else if (hits.length === 1) {
-        await select(hits[0], g, ticket);
+        await select(hits[0], grp, ticket);
       } else {
         setCandidates(hits.slice(0, 12));
         setStatus('idle');
@@ -322,19 +351,32 @@ export function AthleteLookup() {
   async function search(e: FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
-    await runLookup(query, gender);
+    await runLookup(query, group);
   }
 
-  // Rankings are per-gender, so switching gender clears the current athlete
-  // and results — otherwise a favorite's name lingers under the wrong gender.
-  function changeGender(g: Gender) {
-    nextTicket(); // discard anything still in flight for the old gender
-    setGender(g);
+  /** Shared by the gender and event pickers: a different ranking list means the
+   *  athlete on screen no longer belongs there. */
+  function resetLookup() {
+    nextTicket(); // discard anything still in flight for the old ranking
     setQuery('');
     setFound(null);
     setCandidates([]);
     setStatus('idle');
     setMessage('');
+  }
+
+  // Rankings are per-gender, so switching gender clears the current athlete
+  // and results — otherwise a favorite's name lingers under the wrong gender.
+  // The event selection carries over to the other gender's equivalent group.
+  function changeGender(g: Gender) {
+    setGender(g);
+    setGroup((prev) => counterpartGroup(prev, g));
+    resetLookup();
+  }
+
+  function changeGroup(next: EventGroup) {
+    setGroup(next);
+    resetLookup();
   }
 
   function changeRankingType(r: RankingType) {
@@ -354,9 +396,15 @@ export function AthleteLookup() {
               type="button"
               className={`fav-chip ${f.gender}`}
               onClick={() => {
+                // A favorite is stored as a person + gender, with no event group, so
+                // the chip searches the currently-selected event (mapped to the
+                // favorite's gender). Athletes contest one group in practice; if they
+                // aren't in this one, the usual "no athlete matching" message says so.
+                const grp = counterpartGroup(group, f.gender);
                 setGender(f.gender);
+                setGroup(grp);
                 setQuery(f.athlete_name);
-                void runLookup(f.athlete_name, f.gender);
+                void runLookup(f.athlete_name, grp);
               }}
             >
               ★ {f.athlete_name}
@@ -367,6 +415,7 @@ export function AthleteLookup() {
       {favNotice && <p className="lookup-msg">{favNotice}</p>}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={changeGender} />
+        <EventGroupSelect value={group} gender={gender} onChange={changeGroup} />
         <label className="field">
           <span>Athlete</span>
           <input
@@ -392,7 +441,7 @@ export function AthleteLookup() {
               <button
                 type="button"
                 className="lookup-candidates-element"
-                onClick={() => select(c, gender)}
+                onClick={() => select(c, group)}
               >
                 <span>
                   <span>{c.athlete}</span>
@@ -541,9 +590,8 @@ function useAthleteResults(slug: string, years: number[], disciplines: string[],
 }
 
 function Result({ found, onNotice, rankingType, changeRankingType }: { found: Found; onNotice: (msg: string) => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
-  const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
-  // Pinned to high jump until the UI plan adds event selection.
-  const group = findEventGroup(DEFAULT_EVENT_SLUG, gender)!;
+  const { athlete, athleteUrlSlug, nationality, gender, group, ranked, road, roadCalc } = found;
+  const unit = markSuffix(group.mark);
   const results = ranked?.calc.results ?? [];
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = ranked ? ranked.peers.filter((p) => p.id !== ranked.row.id).map((p) => p.rankingScore) : [];
@@ -679,7 +727,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             onNotice={onNotice}
           />
         </div>
-        <div className="muted">{nationality} · High Jump</div>
+        <div className="muted">{nationality} · {group.mainEvent}</div>
       </div>
 
       <div className="lookup-stats">
@@ -752,7 +800,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                       <div className="comp-name">{r.competition}</div>
                       <div className="comp-meta">
                         <span className="cat-badge">{r.category}</span>
-                        {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                        {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark}{unit}
                       </div>
                     </div>
                     <div className="comp-score">
@@ -786,7 +834,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                     <div className="comp-meta">
                       <span className="cat-badge">{r.category}</span>
                       {r.race !== 'F' && <span className="qual-badge" title="Qualification round">Q</span>}
-                      {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                      {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark}{unit}
                     </div>
                   </div>
                   <div className="comp-score">
@@ -806,15 +854,24 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             )}
           </div>
 
-          <SimulateResult
-            gender={gender}
-            baseScores={simBaseScores}
-            currentScore={simCurrentScore}
-            currentPlace={ranked.row.place}
-            peerScores={peerScores}
-            road={simRoad}
-            rankingType={rankingType}
-          />
+          {/* Simulation needs a mark→points table, and only high jump has one so far.
+              Say so rather than scoring another event off the wrong table. */}
+          {hasScoringTable(scoringTable, group) ? (
+            <SimulateResult
+              gender={gender}
+              baseScores={simBaseScores}
+              currentScore={simCurrentScore}
+              currentPlace={ranked.row.place}
+              peerScores={peerScores}
+              road={simRoad}
+              rankingType={rankingType}
+            />
+          ) : (
+            <p className="comps-hint muted" data-testid="no-scoring-table">
+              Result simulation isn't available for {group.mainEvent} yet — its scoring table
+              hasn't been loaded.
+            </p>
+          )}
         </>
       ) : (
         roadEntry?.qualificationDetails && (
@@ -826,7 +883,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                   <div className="comp-meta">
                     {roadEntry.qualificationDetails.venue}
                     {roadEntry.qualificationDetails.date && <> · {roadEntry.qualificationDetails.date}</>}
-                    {roadEntry.qualificationDetails.result && <> · {roadEntry.qualificationDetails.result} m</>}
+                    {roadEntry.qualificationDetails.result && <> · {roadEntry.qualificationDetails.result}{unit}</>}
                   </div>
                 </div>
               </li>
