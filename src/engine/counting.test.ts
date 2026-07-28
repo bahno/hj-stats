@@ -1,5 +1,6 @@
 import { describe, expect, it, test } from 'vitest';
 import { findEventGroup } from '../data/events';
+import spanovic from './__fixtures__/oracle/triple-jump-women.json';
 import { rankingWindow } from './window';
 import {
   allCountingInWindow,
@@ -291,6 +292,44 @@ describe('scoreResults', () => {
     const final = result({ discipline: '100 Metres', race: 'F', category: 'OW', place: '2.' });
     const scored = scoreResults([heat, semi, final], sprintGroup);
     expect(scored.find((s) => s.race === 'H')?.score).toBe(1249);
+  });
+});
+
+/**
+ * Some feeds list one round twice: the legal best and the wind-aided best of the same jump
+ * series arrive as two rows sharing competition, discipline, date and round. Ivana ŠPANOVIĆ's
+ * oracle fixture has three such pairs. World Athletics counts the wind-aided 14.43 (1146) at
+ * the Serbian Championships on 02 AUG 2025; the shadow row is a 14.13 (1131) with a blank
+ * place. Because the counting exclusion keys on `resultScore`, the shadow is not recognised
+ * as already counting and offers itself as a substitute from a competition that is already
+ * in the counting set — a phantom that would inflate a recount.
+ */
+describe('duplicate rows for one round', () => {
+  const tjGroup = findEventGroup('triple-jump', 'women')!;
+  const tjWindow = rankingWindow(tjGroup, parseWaDate(spanovic.rankDate));
+  const tjKeys = new Set(spanovic.calculation.results.map(countingKey));
+  const tjCap = Math.min(...spanovic.calculation.results.map((c) => c.performanceScore));
+  const tjSubs = () => substitutePool(spanovic.results, tjGroup, tjWindow, tjKeys, tjCap);
+
+  it('does not offer the shadow row of an already-counted round as a substitute', () => {
+    expect(tjSubs().some((s) => s.date === '02 AUG 2025')).toBe(false);
+  });
+
+  it('collapses a duplicated round to a single candidate', () => {
+    // 20 JUN 2026, Slovenian Championships: 13.30 legal and 13.49 wind-aided, both "OC",
+    // both scored 1046 by World Athletics. One jump series, so one candidate.
+    expect(tjSubs().filter((s) => s.date === '20 JUN 2026')).toHaveLength(1);
+  });
+
+  it('keeps a qualification and a final held at one competition on one day', () => {
+    // Same competition, same discipline, same date — a different round, so a real second
+    // result. Only the round code tells them apart, and it must stay decisive.
+    const champs = [
+      r('01 JUN 2026', 'Champs', 'OW', 'Q1', '5.', 1135),
+      r('01 JUN 2026', 'Champs', 'OW', 'F', '3.', 1188),
+    ];
+    const subs = substitutePool(champs, hjGroup, hjWindow, new Set(), 2000);
+    expect(subs.map((s) => s.race).sort()).toEqual(['F', 'Q1']);
   });
 });
 

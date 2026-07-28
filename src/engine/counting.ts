@@ -143,6 +143,34 @@ export function allCountingInWindow(
 }
 
 /**
+ * Collapse rows that describe the same round of the same competition, keeping the best.
+ *
+ * Since wind-aided marks stopped being filtered out (see isCountableResult), some feeds are
+ * seen listing one round twice: its legal best and its wind-aided best as separate rows.
+ * Ivana ŠPANOVIĆ's fixture has three such pairs, and the shadow row is dangerous because
+ * `countingKey` includes `resultScore` — the shadow scores differently from the row World
+ * Athletics counted, so it is not recognised as already counting and offers itself as a
+ * substitute from a competition that is already in the counting set.
+ *
+ * The discriminator is the round itself: competition + discipline + date + race code. Across
+ * the 36 oracle fixtures (1716 rows) that key collides exactly three times, and all three are
+ * the known duplicate pairs — while 109 same-competition, same-discipline, same-day pairs of
+ * genuinely different rounds (a heat and its final, a qualification and its final) keep
+ * distinct keys and survive. Keeping the highest-scoring row of a pair keeps the one World
+ * Athletics counts (ŠPANOVIĆ's wind-aided 1146 over the shadow's 1131), which is also what
+ * lets `countingKey` recognise and exclude it.
+ */
+function bestPerRound(results: ScoredResult[]): ScoredResult[] {
+  const best = new Map<string, ScoredResult>();
+  for (const r of results) {
+    const key = `${r.competitionId}|${r.discipline}|${r.date}|${r.race}`;
+    const seen = best.get(key);
+    if (!seen || r.score > seen.score) best.set(key, r);
+  }
+  return [...best.values()];
+}
+
+/**
  * Candidate "next best" results, best-to-worst: scorable results inside the window that
  * aren't already counting and don't out-score the counting set. The `cap` (the lowest
  * counting score) keeps this safe without perfectly reproducing WA's window: a genuine
@@ -156,7 +184,9 @@ export function substitutePool(
   countingKeys: Set<string>,
   cap: number,
 ): ScoredResult[] {
-  return scoreResults(results, group)
+  // Duplicated rounds must collapse *before* the counting exclusion: drop the counted row
+  // first and a shadow row would be left behind as the round's only survivor.
+  return bestPerRound(scoreResults(results, group))
     .filter((r) => isInWindow(r, window))
     .filter((r) => !countingKeys.has(countingKey(r)) && r.score <= cap)
     .sort((a, b) => b.score - a.score || b.t - a.t);
