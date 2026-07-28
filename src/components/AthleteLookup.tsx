@@ -50,6 +50,7 @@ import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../hooks/usePreferences';
+import { readParams, writeParams } from '../urlState';
 
 function normalize(s: string): string {
   return s
@@ -164,6 +165,30 @@ function hitFromRow(row: RankingRow): Hit {
   return { athlete: row.athlete, athleteUrlSlug: row.athleteUrlSlug, nationality: row.nationality, row };
 }
 
+/**
+ * The lookup's slice of the query string, read once at mount. An event slug is
+ * gender-neutral, so it resolves against whatever gender the link names (men by
+ * default); a slug that names no group is dropped rather than treated as an error,
+ * since a link can outlive a rename.
+ */
+function lookupFromUrl() {
+  const params = readParams();
+  const genderParam = params.get('gender');
+  const gender: Gender | null =
+    genderParam === 'men' || genderParam === 'women' ? genderParam : null;
+  const slug = params.get('event');
+  const typeParam = params.get('type');
+  return {
+    gender,
+    group: slug ? (findEventGroup(slug, gender ?? 'men') ?? null) : null,
+    rankingType:
+      typeParam === 'world' || typeParam === 'european' || typeParam === 'road'
+        ? (typeParam as RankingType)
+        : null,
+    query: params.get('q') ?? '',
+  };
+}
+
 function hitFromQualification(entry: QualificationEntry): Hit {
   return {
     athlete: entry.competitor.name,
@@ -175,10 +200,15 @@ function hitFromQualification(entry: QualificationEntry): Hit {
 }
 
 export function AthleteLookup() {
-  const [gender, setGender] = useState<Gender>('men');
-  const [group, setGroup] = useState<EventGroup>(() => findEventGroup(DEFAULT_EVENT_SLUG, 'men')!);
-  const [rankingType, setRankingType] = useState<RankingType>('road')
-  const [query, setQuery] = useState('');
+  // Read once: later writes to the URL are this component's own, and re-reading
+  // them would fight the state they came from.
+  const fromUrl = useRef(lookupFromUrl()).current;
+  const [gender, setGender] = useState<Gender>(fromUrl.gender ?? fromUrl.group?.gender ?? 'men');
+  const [group, setGroup] = useState<EventGroup>(
+    () => fromUrl.group ?? findEventGroup(DEFAULT_EVENT_SLUG, fromUrl.gender ?? 'men')!,
+  );
+  const [rankingType, setRankingType] = useState<RankingType>(fromUrl.rankingType ?? 'road')
+  const [query, setQuery] = useState(fromUrl.query);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [candidates, setCandidates] = useState<Hit[]>([]);
@@ -199,12 +229,25 @@ export function AthleteLookup() {
   // a slug that no longer names a group (renamed upstream, or hand-edited) falls
   // back to carrying the current selection over rather than erroring.
   useEffect(() => {
+    // A link is more specific than a saved default. If the URL said anything at all
+    // about the lookup, it wins outright — applying half a preference on top of half
+    // a link would leave the picker and the athlete on screen describing different
+    // rankings.
+    if (fromUrl.gender || fromUrl.group || fromUrl.query) return;
     if (!defaultGender && !defaultEvent) return;
     const g = defaultGender ?? gender;
     setGender(g);
     setGroup((prev) => (defaultEvent && findEventGroup(defaultEvent, g)) || counterpartGroup(prev, g));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultGender, defaultEvent]);
+
+  // A link that names an athlete resolves it on load, so the URL alone reproduces
+  // the screen it was copied from.
+  useEffect(() => {
+    if (!fromUrl.query) return;
+    void runLookup(fromUrl.query, group);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ranking lists are cached per event group (gender included, since a group is
   // one gender's) so repeated searches don't refetch. The TTL keeps a long-lived
@@ -357,6 +400,7 @@ export function AthleteLookup() {
   async function search(e: FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
+    writeParams({ gender, event: group.slug, q: query });
     await runLookup(query, group);
   }
 
@@ -382,12 +426,16 @@ export function AthleteLookup() {
     // Save the counterpart's slug, not the one being left: the hurdles differ by
     // gender, so '110mh' would resolve to nothing under 'women' on the next load.
     saveDefaultEvent(next);
+    // resetLookup clears the athlete, so the URL must drop it too rather than keep
+    // pointing at someone who is no longer on screen.
+    writeParams({ gender: g, event: next.slug, q: null });
   }
 
   function changeGroup(next: EventGroup) {
     setGroup(next);
     resetLookup();
     saveDefaultEvent(next);
+    writeParams({ gender: next.gender, event: next.slug, q: null });
   }
 
   // Mirrors how the calculator's gender toggle writes default_gender: the pick
@@ -401,6 +449,7 @@ export function AthleteLookup() {
 
   function changeRankingType(r: RankingType) {
     setRankingType(r);
+    writeParams({ type: r });
     setStatus('idle');
     setCandidates([]);
     setMessage('');
@@ -424,6 +473,7 @@ export function AthleteLookup() {
                 setGender(f.gender);
                 setGroup(grp);
                 setQuery(f.athlete_name);
+                writeParams({ gender: f.gender, event: grp.slug, q: f.athlete_name });
                 void runLookup(f.athlete_name, grp);
               }}
             >

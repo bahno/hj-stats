@@ -71,6 +71,21 @@ switch saves the *counterpart's* slug, since the hurdles differ by gender. An un
 slug falls back rather than erroring. Signed-out users get no persistence, which is also
 true of the gender today.
 
+**Rankings is the landing view**, not the calculator, and leads the tab row. The calculator is
+still high-jump-only, so it should not be the first screen; flip `Shell`'s initial `view` back
+once the scoring tables land.
+
+**State is shareable.** `src/urlState.ts` merges query parameters rather than replacing them,
+since `App` owns `view` and `AthleteLookup` owns `gender`/`event`/`type`/`q`. The athlete is
+carried as the search text, not a slug, so a link reuses the ordinary lookup path and degrades
+to the candidate list when the name is ambiguous. A link outranks `default_event`: if the URL
+says anything about the lookup, the saved preference is not applied at all. Writes are
+`replaceState`, so the picker does not fill the Back button.
+
+Because the app now writes to the URL and jsdom shares one window per test file, `test-setup.ts`
+resets the query string before each test. Without it, an event picked in one test decides the
+starting state of the next.
+
 Two things deliberately left alone:
 
 - `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than
