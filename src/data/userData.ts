@@ -5,6 +5,9 @@ import { DEFAULT_NOTIFY_PREFS } from './types';
 export interface Profile {
   id: string;
   default_gender: Gender | null;
+  // An event group's ranking API slug. Gender-neutral, so it is resolved
+  // against default_gender at read time.
+  default_event: string | null;
 }
 
 export interface Favorite {
@@ -19,7 +22,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, default_gender')
+    .select('id, default_gender, default_event')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -28,7 +31,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'default_gender'>>,
+  patch: Partial<Pick<Profile, 'default_gender' | 'default_event'>>,
 ): Promise<void> {
   if (!supabase) throw new Error('Auth is not configured');
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);

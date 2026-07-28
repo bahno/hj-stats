@@ -64,6 +64,13 @@ every other group gets a line saying its scoring table isn't loaded. That gate d
 own when the scoring-tables work lands. Until then, do not "generalize" the simulator - there is
 nothing to score against.
 
+**The selection now persists** the same way the gender does. `profiles.default_event`
+(migration `0006_default_event.sql`) holds the group's gender-neutral slug, written on every
+pick in `AthleteLookup` exactly as the calculator's toggle writes `default_gender`. A gender
+switch saves the *counterpart's* slug, since the hurdles differ by gender. An unresolvable
+slug falls back rather than erroring. Signed-out users get no persistence, which is also
+true of the gender today.
+
 Two things deliberately left alone:
 
 - `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than

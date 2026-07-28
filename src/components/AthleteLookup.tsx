@@ -185,20 +185,26 @@ export function AthleteLookup() {
   const [found, setFound] = useState<Found | null>(null);
   const { user } = useAuth();
   const { favorites } = useFavorites();
-  // One slot for anything the star button needs to say: not signed in, at the
-  // favorites cap, or a save that failed. Silently doing nothing is worse.
-  const [favNotice, setFavNotice] = useState('');
-  const { defaultGender } = usePreferences();
+  // One slot for anything above the form that needs saying: the star button's
+  // not-signed-in / at-the-cap / save-failed cases, and a default-event save
+  // that failed. Silently doing nothing is worse.
+  const [notice, setNotice] = useState('');
+  const { defaultGender, defaultEvent, setDefaultEvent } = usePreferences();
   // Every lookup takes a ticket; only the newest one is allowed to write state.
   // Without this, two quick searches race and the slower response wins, showing
   // one athlete's data under another's name.
   const requestId = useRef(0);
+  // Saved preferences arrive after the first render. The event group is stored as
+  // a gender-neutral slug, so it only resolves once the effective gender is known;
+  // a slug that no longer names a group (renamed upstream, or hand-edited) falls
+  // back to carrying the current selection over rather than erroring.
   useEffect(() => {
-    if (!defaultGender) return;
-    setGender(defaultGender);
-    setGroup((g) => counterpartGroup(g, defaultGender));
+    if (!defaultGender && !defaultEvent) return;
+    const g = defaultGender ?? gender;
+    setGender(g);
+    setGroup((prev) => (defaultEvent && findEventGroup(defaultEvent, g)) || counterpartGroup(prev, g));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultGender]);
+  }, [defaultGender, defaultEvent]);
 
   // Ranking lists are cached per event group (gender included, since a group is
   // one gender's) so repeated searches don't refetch. The TTL keeps a long-lived
@@ -369,14 +375,28 @@ export function AthleteLookup() {
   // and results — otherwise a favorite's name lingers under the wrong gender.
   // The event selection carries over to the other gender's equivalent group.
   function changeGender(g: Gender) {
+    const next = counterpartGroup(group, g);
     setGender(g);
-    setGroup((prev) => counterpartGroup(prev, g));
+    setGroup(next);
     resetLookup();
+    // Save the counterpart's slug, not the one being left: the hurdles differ by
+    // gender, so '110mh' would resolve to nothing under 'women' on the next load.
+    saveDefaultEvent(next);
   }
 
   function changeGroup(next: EventGroup) {
     setGroup(next);
     resetLookup();
+    saveDefaultEvent(next);
+  }
+
+  // Mirrors how the calculator's gender toggle writes default_gender: the pick
+  // takes effect either way, but a failure to remember it is said out loud. A
+  // signed-out user has nowhere to write, and setDefaultEvent no-ops.
+  function saveDefaultEvent(g: EventGroup) {
+    void setDefaultEvent(g.slug).catch(() =>
+      setNotice("Couldn't save this as your default event."),
+    );
   }
 
   function changeRankingType(r: RankingType) {
@@ -412,7 +432,7 @@ export function AthleteLookup() {
           ))}
         </div>
       )}
-      {favNotice && <p className="lookup-msg">{favNotice}</p>}
+      {notice && <p className="lookup-msg">{notice}</p>}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={changeGender} />
         <EventGroupSelect value={group} gender={gender} onChange={changeGroup} />
@@ -449,7 +469,7 @@ export function AthleteLookup() {
                     slug={c.athleteUrlSlug}
                     name={c.athlete}
                     gender={gender}
-                    onNotice={setFavNotice}
+                    onNotice={setNotice}
                   />
                 </span>
                 <span className="muted" style={{ marginLeft: 'auto' }}>
@@ -469,7 +489,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setFavNotice} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setNotice} />}
     </section>
   );
 }
