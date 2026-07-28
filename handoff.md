@@ -1,104 +1,161 @@
-# Handoff: all-disciplines generalization
+# Handoff: all-disciplines, engine done, UI next
 
-Written 2026-07-27. Read this first in a new session, then read the plan.
+Rewritten 2026-07-28. Read this first, then the plan it points at.
 
 ## Where the work lives
 
 - Worktree: `C:\Users\Marek\Desktop\projects\.claude\worktrees\all-disciplines`
 - Branch: `worktree-all-disciplines`, draft PR #16 (`https://github.com/bahno/hj-stats/pull/16`)
-- Commits: `a878c0e` research → `552d255` corrections → `fc5a90d` rules extraction → `1891b36` plan
-- Working tree clean apart from an untracked `claude.md` at the repo root (not mine, left alone)
+- Plan just executed: `docs/superpowers/plans/2026-07-27-all-disciplines-engine.md` (all 9 tasks)
+- Research: `docs/superpowers/specs/2026-07-27-all-disciplines-research.md`
+- Working tree carries an untracked `claude.md` at the root that is not part of this work. Leave it.
 
-## Goal
+## What is done
 
-Generalize `hj-stats` from high jump only to all World Athletics **Track & Field** event
-groups (36 of them). Scope decided by the user:
+The **scoring engine** is generalized from high jump to all 36 World Athletics Track & Field
+event groups, and verified against World Athletics' own `getRankingScoreCalculation` payloads
+for every one of them.
 
-- Track & Field only. Road running, race walking and combined events are deferred.
-- Rankings / real-athlete features first; the what-if calculator follows.
-- Keep the `hj-stats` name for now.
+A single `EventGroup` descriptor (`src/data/events.ts`) is the only thing that knows anything
+discipline-specific: which disciplines belong to the group, how many results are averaged, how
+long the ranking window is, how marks are written, which placing tables apply. Every engine
+function takes it as a parameter.
 
-## Done
+| Module | What it owns |
+|---|---|
+| `src/data/events.ts` | `EventGroup` registry over all 36 groups, `findEventGroup` |
+| `src/engine/mark.ts` | parse/format/compare marks across heights, distances, times, points |
+| `src/engine/rounds.ts` | `classifyRounds`, `advancedToFinal` |
+| `src/engine/placing.ts` | placing points across all 9 tables of the 2026 rules |
+| `src/engine/dates.ts` | `parseWaDate`, `oneYearEarlier` |
+| `src/engine/window.ts` | `rankingWindow`, `fixedPeriodWindow`, `isInWindow` |
+| `src/engine/counting.ts` | `isCountableResult`, `scoreResults`, `substitutePool` |
+| `pipeline/harvest_disciplines.py` | harvests each group's long discipline names live |
+| `scripts/capture-oracle-fixtures.mjs` | captures WA payloads as committed fixtures |
+| `scripts/capture-deep-calculations.mjs` | surveys mid-table and lower-ranked athletes |
 
-**`docs/superpowers/specs/2026-07-27-all-disciplines-research.md`** — what generalizes free,
-what needs parameterizing, what is net new, verification strategy, open questions.
+**Verified state:** 40 test files / 413 tests pass, `npx tsc -b` exits 0, `npm run build`
+succeeds, `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exit 0.
 
-**Rules extraction pipeline** (`fc5a90d`):
+## What is next: the UI and storage plan
 
-- `pipeline/rules_anchors.py` — values read off the rendered page **by eye, before** the
-  extractor existed, so a parser bug cannot redefine "correct". Do not regenerate these
-  from extractor output.
-- `pipeline/scrape_rules.py` — pulls every `Table 2.N` from
-  `worldathletics.org/world-ranking-rules/track-field-events-2026`.
-- `pipeline/verify_rules.py` — anchors, no-zero-scores, monotonicity (catches row
-  misalignment), categories, wind, event groups, and that `placing_points.json` still
-  equals Table 2.2.
-- Generated: `src/data/placing_tables.json` (9 placing tables + `eventGroupTables` +
-  categories + wind), `src/data/event_groups.json` (36 groups).
-  `src/data/placing_points.json` was regenerated **byte-identical** to the hand-curated
-  file — that is the main evidence the extractor is right.
-- Deleted `pipeline/scrape_placing.py`. It scraped the **2025** page while the data was
-  2026 (an OW win: 375 vs 260). Live footgun, gone.
+**This plan does not exist yet. Write it before coding.** The engine handles 36 groups; nothing
+in the UI lets a user pick one. That gap is the whole job.
 
-**`docs/superpowers/plans/2026-07-27-all-disciplines-engine.md`** — 9 TDD tasks, full test
-and implementation code per task. This is the thing to execute.
+### 1. Event selection in the UI
 
-Last verified state: 169 tests / 33 files passing; `verify.py` and `verify_rules.py` both
-exit 0.
+Everything below is currently pinned to high jump on purpose, because event selection was
+explicitly out of scope for the engine plan:
 
-## Not done — next action
+- `src/components/AthleteLookup.tsx:203` - `fetchRanking(findEventGroup(DEFAULT_EVENT_SLUG, g)!.slug, g)`
+- `src/components/AthleteLookup.tsx:214` - `fetchRoadToBirmingham(findEventGroup(DEFAULT_EVENT_SLUG, g)!)`
+- `src/components/AthleteLookup.tsx:546` - `const group = findEventGroup(DEFAULT_EVENT_SLUG, gender)!`
+- `src/components/AthleteLookup.tsx:682` - the string `High Jump` is hardcoded in the display line
 
-The writing-plans skill requires an execution handoff that was never presented. Offer the
-user the choice, then execute:
+Replace `DEFAULT_EVENT_SLUG` with a selected group threaded from a picker. `EVENT_GROUPS` is
+already sorted and labelled for exactly this. There is an existing input component convention in
+`src/components/inputs/` (`GenderToggle`, `RankingTypeToggle`, `CategorySelect`) - follow it
+rather than inventing a new control shape. 36 groups is too many for a toggle; it needs a select
+or a grouped list (track / jumps / throws).
 
-1. **Subagent-driven** (recommended) — a fresh subagent per task, review between tasks.
-2. **Inline** — execute in-session via `superpowers:executing-plans`, batched with checkpoints.
+Note `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5`, and
+`recomputeRanking` uses that constant rather than `EventGroup.countingResults`. Harmless today
+because every Track & Field group averages 5, so `events.ts` seeds the field from it. It becomes
+a real bug the moment a group with a different count is added (combined events use 2). Prefer
+threading `group.countingResults`.
 
-Note the standing instruction in this repo: do not call the Agent tool unless the user
-asks for it. So option 1 needs the user to say yes.
+### 2. Storage schema - this is the part that will bite
 
-## The plan's 9 tasks
+**`ranking_snapshots` has primary key `(athlete_slug, gender)`** (`supabase/migrations/0002_notifications.sql:23`).
+One row per athlete per gender. The moment a user tracks the same athlete in two event groups,
+or two groups' pollers both write, snapshots **silently overwrite each other** and the progress
+timeline becomes wrong without any error. This key must gain the event group. Needs a migration
+plus a backfill decision for existing rows (they are all high jump, so backfill is a constant).
 
-1. Harvest discipline long names (`pipeline/harvest_disciplines.py`)
-2. Event registry (`src/data/events.ts`) — `EventGroup`, `MarkSpec`, `findEventGroup`
-3. Mark model (`src/engine/mark.ts`) — parse/format/compare across time, distance, height
-4. Round classification (`src/engine/rounds.ts`) — `classifyRounds`, `advancedToFinal`
-5. Placing resolution (`src/engine/placing.ts`) — pick the right table, then the points
-6. Ranking window (extract `src/engine/dates.ts`, add `src/engine/window.ts`)
-7. Generalize `src/engine/counting.ts` — drop the `discipline === 'High Jump'` check
-8. Generalize the API clients — kill the hardcoded `HIGH_JUMP_EVENT_ID`
-9. Oracle verification against `getRankingScoreCalculation`
+**`favorites` is unique on `(user_id, athlete_slug, gender)`** (`supabase/migrations/0001_init.sql:17`).
+Less broken, but it forces a product decision you should make deliberately rather than by
+default: is a favorite a *person* (follow Duplantis everywhere) or a *person in an event*
+(follow him in pole vault only)? Notification volume and the settings UI both hang off that
+answer. Do not let the schema decide it by accident.
 
-Tasks 6 and 7 are coupled: `dates.ts` must be extracted first or `window.ts` and
-`counting.ts` import each other circularly. The plan already handles this; do not
-"simplify" it back.
+### 3. Scaling the poller
 
-## Things that will bite you
+`supabase/functions/_shared/ea.ts` is high-jump-only in three places:
 
-- **Table 2.3 vs 2.4.** 2.3 is "Final is of max. 9 athletes", 2.4 is "10 or more".
-  I had this backwards in the first research commit; `552d255` fixed it. Neither the EA
-  nor the WA feed reports finalist count, so the plan assumes field events → `min10`,
-  track → `max9`, and lets Task 9's oracle test disprove it. If oracle results diverge,
-  that assumption is the first suspect.
-- **Task 7 changes behaviour on purpose.** `scoreResults` now includes non-final rounds
-  that the old `candidateScore` returned `null` for. A test will fail against the old
-  expectation; the fix is the expectation, not the code. The plan says so explicitly.
-- **Cloudflare 403.** Both the WA and EA hosts reject default client agents. Send a
-  browser `User-Agent`. Worth re-checking whether the Deno poller trips this too.
-- **Non-final rounds do score.** Confirmed live: a semi-final placing scored 100; a heat
-  scored 0 only because Tables 2.3/2.4 have no columns below GL.
-- **Road-to event IDs need no hardcoding.** `getCompetitionQualifyingSystem` returns the
-  full `events[]` list from `competitionId` alone. This was expected to be the hard part
-  and is not.
-- **Empty table cells are omitted, never stored as 0.** "Scores nothing" and "not ranked"
-  are different states.
+- line 92 - `if (c?.discipline !== 'High Jump') continue;`
+- lines 165 and 173 - `eventGroup: 'high-jump'` in the paginated ranking fetch
 
-## Deliberately out of scope for the engine plan
+Going to all groups means 36 groups x 2 genders = **72 paginated ranking fetches per poll**, up
+from 2. That is a different order of cost and runtime, and Deno edge functions have execution
+limits. Options worth costing before writing code: poll only groups some user actually favorites;
+shard across scheduled runs; or keep a per-group cursor. Do not just wrap the existing call in a
+loop over 36 groups and hope.
 
-- **UI / storage plan** — event selection, `favorites` and `ranking_snapshots` key changes,
-  scaling the poller to 36 group/gender combinations. Needs writing.
-- **Scoring tables plan** (mark → performance points). Blocked: **the user is doing this
-  research themselves**. `pipeline/parse_scoring.py` currently extracts the high jump
-  column only, via hardcoded PDF page ranges.
-- Overweighting rules (only the latest OW/DF edition counts) — documented, not implemented.
-- Race walk slugs were never found in the EA ranking API.
+Reuse `EventGroup.disciplines` for the line-92 filter instead of a hardcoded string. The comment
+there says it mirrors "the frontend's High Jump filter", which no longer exists in that form.
+
+## Traps, learned the hard way
+
+- **The EA gateway 403s on TLS fingerprint, not headers.** Python `requests` and Node
+  `fetch`/undici both fail against `api.european-athletics.com` no matter what headers you send.
+  Python stdlib `urllib.request` with a browser `User-Agent` works, and so does `curl`.
+  `scripts/capture-oracle-fixtures.mjs` already routes around it via a `python -c` helper. Reuse
+  that. This cost hours twice. The WA AppSync GraphQL endpoint has no such front.
+- **`pipeline/scrape_rules.py` overwrites `src/data/event_groups.json` wholesale** and drops the
+  harvested `disciplines` arrays. It must always be followed by `pipeline/harvest_disciplines.py`.
+  `pipeline/README.md` documents the order. `verify_rules.py` catches it if you forget.
+- **`pipeline/rules_anchors.py` values were read off the rendered page by eye, before the
+  extractor existed.** Never regenerate them from extractor output; that would defeat the entire
+  point of having them.
+- **Two scoring paths coexist.** `combinedScore` reads `placing_points.json` (Table 2.2) and
+  `scoreResults` reads `placing_tables.json` (all 9 tables). They agree exactly on finals today,
+  which is precisely the kind of agreement that drifts unnoticed. Collapsing them belongs in the
+  UI migration, since `score.ts`'s signatures were kept working on purpose.
+- **Road rankings use a fixed published window**, not a rolling one. Birmingham publishes
+  27 JUL 2025 - 26 JUL 2026 for both the entry-standard and world-ranking routes, so the Area
+  Championships allowance must stay off that path. `fixedPeriodWindow` encodes this. Confirmed
+  against birmingham26.com.
+- **Non-final rounds do score.** A semi-final placing scores 100. A heat scores 0 only because
+  Tables 2.3/2.4 have no columns below GL. "Scores nothing" and "not ranked" are different
+  states, and empty table cells are omitted rather than stored as 0.
+- **`notLegal` is not a filter.** It marks a mark ineligible for records and lists, not for the
+  ranking. World Athletics counts wind-aided marks.
+
+## Open engine items
+
+These are documented in the PR body and are NOT blockers for the UI work.
+
+- **One unexplained selection divergence, held as `it.fails`.** World Athletics sometimes leaves
+  a strictly higher-scoring result out of the average. Aleksandra ZAUCHA's 11 JUL 2026 result
+  scores 1027 and is omitted in favour of a 27 JUN 2026 one scoring 1005; Juan Antonio PÉREZ
+  (Men's 10,000m) shows the same shape, a 1107 road result passed over for a 1103. Some
+  eligibility rule we do not implement is at work. Two observations is not enough to name it, so
+  it is recorded in `KNOWN_SELECTION_DIVERGENCE` in `src/engine/oracle.test.ts` rather than
+  guessed at. **This is the most promising lead left in the engine** - a third observation would
+  probably crack it, and `scripts/capture-deep-calculations.mjs` is the tool for finding one.
+- **Tables 2.6/2.7/2.8** (round before the final for 5000m, 3000mSC, 10000m) have no counting
+  result in any fixture, so that path is unexercised by the oracle.
+- **Equal-score-and-equal-mark ties are arbitrary.** `byCountingOrder` falls back to newest-first,
+  which matched 5 of 8 observed cases. There is no rule in the data; do not invent one.
+
+### Settled, do not re-litigate
+
+- **Blank round codes are a non-issue.** The worry was that a result with `race: ''` classifies
+  as `other` and loses its placing points. A survey of 330 captured calculations - 1534 counting
+  rows and 14578 profile rows, sampled down to ranking place 1101 - found **zero** blank or
+  missing race values. Changing `src/engine/rounds.ts` for this would be fixing an imagined bug.
+- **The tie-break is now evidence-backed**, not a guess: a tied score goes to the higher mark
+  score, 7 of 7 discriminating observations. Four tie fixtures are committed under
+  `src/engine/__fixtures__/oracle/tie-*.json` to pin it.
+- Rare similar-events (50m, 300mH, Mile Road Race) are missing from the harvested `disciplines`
+  lists because the harvest sampled the top 25 per group. Fix is a deeper
+  `pipeline/harvest_disciplines.py --sample`, never a hand-edit of the JSON.
+
+## Still out of scope
+
+- **Scoring tables** (mark to performance points). The user is doing this research themselves.
+  `pipeline/parse_scoring.py` currently extracts the high jump column only, via hardcoded PDF
+  page ranges.
+- **Overweighting** (only the latest OW/DF edition counts) - documented, not implemented.
+- Road running, race walking, combined events, cross country. Race walk slugs were never found in
+  the EA ranking API.
