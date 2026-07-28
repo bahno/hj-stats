@@ -1,6 +1,7 @@
-import { expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
   countryPreOccupancy,
+  eventIdFor,
   findQualification,
   qualifyingPoolPosition,
   qualifyingPoolPositionIgnoringQuota,
@@ -131,4 +132,29 @@ test('qualifyingPoolPositionIgnoringQuota still ranks an athlete blocked by the 
   // But still a plain pool position (nonRankingSlots 13 + pool index 1 (0-based) + 1 = 15),
   // ignoring the country cap — used to still show a rank instead of a blank dash.
   expect(qualifyingPoolPositionIgnoringQuota(pool, 'self')).toBe(15);
+});
+
+describe('eventIdFor', () => {
+  const events = [
+    { id: 10229509, genderCode: 'W' as const, name: "Women's 100 Metres" },
+    { id: 10229526, genderCode: 'W' as const, name: "Women's High Jump" },
+    { id: 10229615, genderCode: 'M' as const, name: "Men's High Jump" },
+  ];
+
+  it('finds the event by gender and main event name', () => {
+    expect(eventIdFor(events, 'men', 'High Jump')).toBe(10229615);
+    expect(eventIdFor(events, 'women', 'High Jump')).toBe(10229526);
+  });
+
+  it('returns null when the competition does not stage the event', () => {
+    expect(eventIdFor(events, 'men', 'Pole Vault')).toBeNull();
+  });
+
+  it('does not confuse an event with a longer name that contains it', () => {
+    const withHurdles = [
+      { id: 1, genderCode: 'M' as const, name: "Men's 100 Metres" },
+      { id: 2, genderCode: 'M' as const, name: "Men's 100 Metres Hurdles" },
+    ];
+    expect(eventIdFor(withHurdles, 'men', '100 Metres')).toBe(1);
+  });
 });

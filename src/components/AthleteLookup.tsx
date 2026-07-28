@@ -4,7 +4,7 @@ import {
   type RankingType,
   type RankingCalculation,
   type RankingRow,
-  fetchHighJumpRanking,
+  fetchRanking,
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import {
@@ -19,7 +19,7 @@ import {
 } from '../data/birminghamApi';
 import {
   athleteIdFromSlug,
-  fetchAthleteHighJumpResults,
+  fetchAthleteResults,
   type AthleteResult,
 } from '../data/athleteResultsApi';
 import {
@@ -136,7 +136,7 @@ interface Found {
 /**
  * A search match — either a ranked athlete or one found only in the Road to Birmingham
  * qualification list. Entry-standard qualifiers (and other fixed-route qualifiers) don't
- * need a World Ranking place at all, so they can be entirely absent from `fetchHighJumpRanking`
+ * need a World Ranking place at all, so they can be entirely absent from `fetchRanking`
  * while still being a real, qualified-for-Birmingham hit that a search should surface.
  */
 interface Hit {
@@ -200,7 +200,7 @@ export function AthleteLookup() {
   async function ranking(g: Gender) {
     const hit = fresh(cache.get(g));
     if (hit) return hit;
-    const data = await fetchHighJumpRanking(g);
+    const data = await fetchRanking(findEventGroup(DEFAULT_EVENT_SLUG, g)!.slug, g);
     cache.set(g, { at: Date.now(), data });
     return data;
   }
@@ -211,7 +211,7 @@ export function AthleteLookup() {
     const hit = fresh(roadCache.get(g));
     if (hit) return hit;
     try {
-      const data = await fetchRoadToBirmingham(g);
+      const data = await fetchRoadToBirmingham(findEventGroup(DEFAULT_EVENT_SLUG, g)!);
       roadCache.set(g, { at: Date.now(), data });
       return data;
     } catch (e) {
@@ -497,16 +497,17 @@ function yearsInRange(startMs: number, endMs: number): number[] {
 type ResultsState = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * Lazily loads an athlete's full High Jump result list from WorldAthletics (see
+ * Lazily loads an athlete's result list for one event group from WorldAthletics (see
  * athleteResultsApi.ts) once we have a window to fetch. Powers the "remove a counting
  * competition and slot in the next best" feature; on any failure it stays in `error` and
  * the feature simply doesn't offer removal, never blocking the core lookup.
  */
-function useAthleteResults(slug: string, years: number[], enabled: boolean) {
+function useAthleteResults(slug: string, years: number[], disciplines: string[], enabled: boolean) {
   const [results, setResults] = useState<AthleteResult[] | null>(null);
   const [state, setState] = useState<ResultsState>('idle');
   // Stable dependency so we refetch only when the athlete or the fetched years change.
   const yearsKey = years.join(',');
+  const disciplinesKey = disciplines.join(',');
   useEffect(() => {
     setResults(null);
     if (!enabled || years.length === 0) {
@@ -520,7 +521,7 @@ function useAthleteResults(slug: string, years: number[], enabled: boolean) {
     }
     let cancelled = false;
     setState('loading');
-    fetchAthleteHighJumpResults(id, years)
+    fetchAthleteResults(id, years, disciplines)
       .then((rs) => {
         if (cancelled) return;
         setResults(rs);
@@ -535,12 +536,14 @@ function useAthleteResults(slug: string, years: number[], enabled: boolean) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, yearsKey, enabled]);
+  }, [slug, yearsKey, disciplinesKey, enabled]);
   return { results, state };
 }
 
 function Result({ found, onNotice, rankingType, changeRankingType }: { found: Found; onNotice: (msg: string) => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
   const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
+  // Pinned to high jump until the UI plan adds event selection.
+  const group = findEventGroup(DEFAULT_EVENT_SLUG, gender)!;
   const results = ranked?.calc.results ?? [];
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = ranked ? ranked.peers.filter((p) => p.id !== ranked.row.id).map((p) => p.rankingScore) : [];
@@ -595,6 +598,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
   const { results: allResults, state: resultsState } = useAthleteResults(
     athleteUrlSlug,
     fetchYears,
+    group.disciplines,
     !!ranked,
   );
 
@@ -612,7 +616,6 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
     // Exclude the counting results by a place-independent key (a qual's place drifts between
     // the calc and profile feeds), so an already-counting result can't reappear as a substitute.
     const keys = new Set(displayedResults.map(countingKey));
-    const group = findEventGroup(DEFAULT_EVENT_SLUG, gender)!;
     // Road rankings use Birmingham's fixed first/last ranking day, so the bounds come from
     // activeWindow; only the Area Championships allowance is taken from the group's window.
     const window = {

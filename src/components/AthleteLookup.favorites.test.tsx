@@ -21,11 +21,11 @@ vi.mock('../hooks/FavoritesContext', () => ({
 // Avoid real network from the ranking API on mount.
 vi.mock('../data/athleteResultsApi', () => ({
   athleteIdFromSlug: () => 1,
-  fetchAthleteHighJumpResults: vi.fn(async () => []),
+  fetchAthleteResults: vi.fn(async () => []),
 }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
+  fetchRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -42,16 +42,16 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
 
 beforeEach(() => {
   mocks.user.current = { id: 'u1' };
   mocks.favorites.current = [
     { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men' },
   ];
-  vi.mocked(fetchHighJumpRanking).mockReset();
+  vi.mocked(fetchRanking).mockReset();
   vi.mocked(fetchRankingCalculation).mockReset();
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '', rows: [] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '', rows: [] });
   mocks.toggle.mockReset().mockResolvedValue(undefined);
 });
 
@@ -79,7 +79,7 @@ test('clicking a favorite chip re-runs the lookup and renders the result', async
     disciplineList: ['High Jump'],
     results: [],
   };
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
   vi.mocked(fetchRankingCalculation).mockResolvedValue(calc);
 
   render(<AthleteLookup />);
@@ -116,7 +116,7 @@ test('clicking a favorite star in the candidates list does not select the row', 
     previousPlace: 3,
     previousRankingScore: 1375,
   };
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row1, row2] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row1, row2] });
 
   render(<AthleteLookup />);
 
@@ -143,7 +143,7 @@ test('switching gender clears the selected favorite name and result', async () =
     previousPlace: 2,
     previousRankingScore: 1380,
   };
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
   vi.mocked(fetchRankingCalculation).mockResolvedValue({
     averagePerformanceScore: 1400,
     disciplineList: ['High Jump'],
@@ -178,7 +178,7 @@ test('surfaces the 50-favorite cap instead of failing silently', async () => {
     previousPlace: 2,
     previousRankingScore: 1380,
   };
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
 
   render(<AthleteLookup />);
   fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), { target: { value: 'Tamberi' } });
@@ -204,7 +204,7 @@ test('prompts unauthenticated users to sign in when starring', async () => {
     previousPlace: 2,
     previousRankingScore: 1380,
   };
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row, { ...row, id: 43, athlete: 'Lorenzo Tamberi', athleteUrlSlug: 'lorenzo-tamberi' }] });
 
   render(<AthleteLookup />);
   fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), { target: { value: 'Tamberi' } });
