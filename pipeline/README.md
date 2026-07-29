@@ -48,6 +48,11 @@ Parses the official Scoring Tables PDF into `scoring_tables.json`: the mark → 
 table for all 36 Track & Field event groups, keyed by the same slugs as
 `event_groups.json`. Takes about ten minutes — pdfplumber reads 846 pages.
 
+The file opens with a `notes` array — JSON has no comments, so the things a reader has to
+know before using the data (the lookup rule, the wind caveat, that it is generated) ship
+inside it. `NOTES` in `parse_scoring.py` is where they are written; change them there, not
+in the JSON, and keep them agreeing with this file.
+
 It does **not** hardcode page ranges. Every data page in the book names its own
 columns in a header, and two layouts alternate (the score is the first column on one
 page, the last on the next), so the parser reads the headers and picks out the columns

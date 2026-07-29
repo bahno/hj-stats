@@ -82,6 +82,54 @@ GLUE_TOKENS = {"sh", "SC", "Miles"}
 # A cell holding no mark for that score.
 EMPTY = "-"
 
+# JSON has no comments, and this file is the thing a future worker opens first — so the
+# comments ship inside it. Everything here is a fact about how to *use* the data that the
+# data itself does not show. Keep it in sync with pipeline/README.md.
+NOTES = [
+    "GENERATED FILE — do not hand-edit. Regenerate with `python pipeline/parse_scoring.py`"
+    " (about ten minutes; pass a path to an already-downloaded PDF to skip the download),"
+    " then check it with `python pipeline/verify.py`.",
+
+    "Keyed by the event-group slugs of event_groups.json, so a table can be looked up"
+    " straight from an EventGroup. `column` is the header cell the marks were read from,"
+    " kept so a mis-attributed column is visible without reopening the PDF.",
+
+    "Only the MAIN event of each group is here. A group covers similar events too — the"
+    " 100m group counts a 60m result — but those score off their own column in the book."
+    " That is fine because the app never scores a real result itself: World Athletics hands"
+    " it the points. These tables are for the simulator, which asks what a hypothetical mark"
+    " in the group's own event would be worth.",
+
+    "LOOKUP IS NOT AN EXACT MATCH. The book lists 1400 scores per event, which for a long"
+    " event is far fewer rows than there are possible marks — most marks are simply not"
+    " here. The book's rule is \"should a performance fall between two results on the tables"
+    " the lower score shall be considered\": take the best score whose listed mark the"
+    " performance actually reaches. See score_for() in pipeline/verify.py for a reference"
+    " implementation.",
+
+    "These are MARK points only. A World Athletics ranking score is mark points plus placing"
+    " points (placing_tables.json). Note the naming trap in the WA feeds: `resultScore` is"
+    " the mark points these tables produce, while `performanceScore` is already the sum of"
+    " the two.",
+
+    "WIND: for 100m, 200m, 110mH/100mH, long jump and triple jump, World Athletics adjusts"
+    " the score for the wind — up for a headwind, down for a tail. That adjustment is not in"
+    " the scoring tables and is not applied here, so a real score in those events can sit a"
+    " few points either side of this file. `notLegal` (wind-aided) marks are still ranked, at"
+    " an adjusted score.",
+
+    "Marks are strings, written the way the book writes them: times under a minute as plain"
+    " seconds (\"9.46\"), longer ones as \"M:SS.ss\" or \"MM:SS.ss\" (\"26:45.49\"); heights,"
+    " distances and throws in metres. Compare them by parsing, never as strings.",
+
+    "Scores descend 1400 -> 1 through the book, and a mark that appears against more than one"
+    " score keeps the highest — the score World Athletics awards it.",
+
+    "About 1.1 MB (222 kB gzipped). Nothing imports it yet; the app still reads the"
+    " high-jump-only scoring_table.json. Before wiring it in, decide whether it stays one"
+    " static import or splits per event group behind a dynamic import (~8 kB gzipped each).",
+]
+
 
 def download() -> bytes:
     resp = requests.get(PDF_URL, headers={"User-Agent": "hj-stats-pipeline"}, timeout=120)
@@ -191,10 +239,14 @@ def main() -> None:
     if cached is not None and cached.exists():
         print(f"Using cached PDF at {cached}")
         pdf_bytes = cached.read_bytes()
+        # "retrieved" dates the source, not this run — a cached PDF was fetched when it was
+        # written, and stamping it with today's date would overstate how fresh the data is.
+        retrieved = date.fromtimestamp(cached.stat().st_mtime)
     else:
         print("Downloading scoring tables PDF…")
         pdf_bytes = download()
         print(f"Downloaded {len(pdf_bytes):,} bytes.")
+        retrieved = date.today()
 
     tables = extract(pdf_bytes)
 
@@ -216,12 +268,15 @@ def main() -> None:
     OUT.write_text(
         json.dumps(
             {
+                "notes": NOTES,
                 "source": EDITION,
                 "url": PDF_URL,
-                "retrieved": date.today().isoformat(),
+                "retrieved": retrieved.isoformat(),
                 "events": events,
             },
             indent=2,
+            # The notes are meant to be read where they sit, and "—" is not reading.
+            ensure_ascii=False,
         )
         + "\n",
         encoding="utf-8",
