@@ -12,7 +12,7 @@ installed globally.
 
 ```bash
 npx supabase secrets set RESEND_API_KEY=re_xxx
-npx supabase secrets set NOTIFY_FROM_EMAIL="HJ Stats <no-reply@yourdomain>"
+npx supabase secrets set NOTIFY_FROM_EMAIL="Track Rank <no-reply@yourdomain>"
 
 # Print the secret BEFORE setting it — step 5 needs the value, and a secret
 # cannot be read back out of Supabase afterwards.
