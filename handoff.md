@@ -64,7 +64,7 @@ own when the scoring-tables work lands. Until then, do not "generalize" the simu
 nothing to score against.
 
 **The selection now persists** the same way the gender does. `profiles.default_event`
-(migration `0006_default_event.sql`) holds the group's gender-neutral slug, written on every
+(migration `0008_default_event.sql`) holds the group's gender-neutral slug, written on every
 pick in `AthleteLookup` exactly as the calculator's toggle writes `default_gender`. A gender
 switch saves the *counterpart's* slug, since the hurdles differ by gender. An unresolvable
 slug falls back rather than erroring. Signed-out users get no persistence, which is also
@@ -155,6 +155,13 @@ Reuse `EventGroup.disciplines` for the line-92 filter instead of a hardcoded str
 there says it mirrors "the frontend's High Jump filter", which no longer exists in that form.
 
 ## Traps, learned the hard way
+
+- **Two migrations must never share a version prefix.** The Supabase CLI keys
+  `supabase_migrations.schema_migrations` on the digits before the first underscore, so a second
+  `0006_*.sql` is read as already applied and `db push` skips it - no error, no column, and the
+  app then fails at runtime against a schema that looks current. This branch shipped
+  `0006_default_event.sql` next to main's `0006_notification_outbox.sql`; it is now `0008`.
+  Check `ls supabase/migrations` before naming a new one.
 
 - **The EA gateway 403s on TLS fingerprint, not headers.** Python `requests` and Node
   `fetch`/undici both fail against `api.european-athletics.com` no matter what headers you send.

@@ -32,7 +32,7 @@ Do this **before** step 4. The poller selects `last_ranking_weeks` and reads
 `notification_outbox`; deployed against the old schema it fails every run with
 `notification_settings query failed`.
 ```bash
-npx supabase db push    # applies 0002_notifications.sql .. 0006_notification_outbox.sql
+npx supabase db push    # applies 0002_notifications.sql .. 0008_default_event.sql
 ```
 
 ## 4. Deploy functions
