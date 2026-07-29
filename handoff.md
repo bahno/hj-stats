@@ -108,10 +108,17 @@ One thing deliberately left alone:
   the field through today would be dead configurability. Do it when a group with a different
   count (combined events use 2) actually becomes reachable.
 
-**The product is called Track Rank.** `index.html`, `Logo.tsx`, `README.md`, the unsubscribe
-page and the notification From name all say so. The repo, the npm package name and the Pages
-base path are still `hj-stats` - renaming those is the user's call, and `/hj-stats/` is baked
-into every deployed asset URL.
+**The product is called Track Rank and lives at the root of `bahno.info`.** `index.html`,
+`Logo.tsx`, `README.md`, the unsubscribe page and the notification From name carry the name.
+The domain move retired the `/hj-stats/` subpath: Vite's `base` is `/`, `public/CNAME` pins the
+domain into the Pages artifact, `og:image`/`og:url` are absolute (crawlers don't resolve a
+relative `og:image`), and `delete-account`'s ALLOWED_ORIGINS fallback is the new origin - a stale
+value there is a CORS failure on account deletion, not a cosmetic one. The repo and the npm
+package name are still `hj-stats`; renaming those is the user's call.
+
+**Supabase Auth redirect URLs are not in this repo** and still point at the old address. Add
+`https://bahno.info/` in the dashboard, or every confirmation and password-reset link sends
+people to a site that no longer exists there.
 
 ### 2. Storage schema - this is the part that will bite
 

@@ -20,7 +20,7 @@ CRON_SECRET="$(openssl rand -hex 32)"; echo "$CRON_SECRET"
 npx supabase secrets set CRON_SECRET="$CRON_SECRET"
 
 # Origins allowed to call delete-account from a browser (comma-separated).
-npx supabase secrets set ALLOWED_ORIGINS="https://bahno.github.io"
+npx supabase secrets set ALLOWED_ORIGINS="https://bahno.info"
 ```
 (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
 
