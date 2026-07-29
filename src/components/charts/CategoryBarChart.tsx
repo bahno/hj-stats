@@ -5,10 +5,10 @@ export function CategoryBarChart({ rows }: { rows: CategoryScore[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={rows}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e2733" />
-        <XAxis dataKey="category" stroke="#8b949e" />
-        <YAxis stroke="#8b949e" />
-        <Tooltip contentStyle={{ background: '#0d1117', border: '1px solid #1e2733' }} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+        <XAxis dataKey="category" stroke="var(--muted)" />
+        <YAxis stroke="var(--muted)" />
+        <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)' }} />
         <Bar dataKey="total" fill="#3b82f6" />
       </BarChart>
     </ResponsiveContainer>

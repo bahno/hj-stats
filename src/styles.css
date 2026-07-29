@@ -19,6 +19,29 @@
   --silver: #c7cdd4;
   --bronze: #cd8b5c;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --ring-rgb: 238 242 240;
+}
+
+/* Light theme: same-hue tokens as :root above, re-tuned (mostly darkened)
+   so text/status colors clear roughly AA contrast against a white panel. */
+:root[data-theme="light"] {
+  --bg: #f4f6f7;
+  --panel: #ffffff;
+  --line: #d8dee1;
+  --text: #14181a;
+  --muted: #56635f;
+  --accent: #1a56db;
+  --accent-rgb: 26 86 219;
+  --men: #1a56db;
+  --women: #be185d;
+  --pos: #15803d;
+  --pos-rgb: 21 128 61;
+  --neg: #b91c1c;
+  --neg-rgb: 185 28 28;
+  --gold: #b45309;
+  --silver: #64748b;
+  --bronze: #7c4a2d;
+  --ring-rgb: 20 24 26;
 }
 
 * {
@@ -284,6 +307,13 @@ body {
 .cat-chip[data-cat="E"],
 .cat-chip[data-cat="F"] { --tier: 124 139 134; }   /* neutral — the unranked base tiers */
 
+/* Light theme: B/A/GW's --tier value above reads too pale as text at the
+   .cat-chip[data-cat] resting-state's 55%-tier color-mix; darken just these
+   three (keeping the same hue family) so labels clear AA contrast on white. */
+:root[data-theme="light"] .cat-chip[data-cat="B"]  { --tier: 107 112 117; }
+:root[data-theme="light"] .cat-chip[data-cat="A"]  { --tier: 150 108 20; }
+:root[data-theme="light"] .cat-chip[data-cat="GW"] { --tier: 20 110 145; }
+
 /* Resting state: a quiet tier-tinted chip so the ladder reads at a glance. */
 .cat-chip[data-cat] {
   color: color-mix(in srgb, rgb(var(--tier)) 55%, var(--muted));
@@ -305,7 +335,7 @@ body {
   background: rgb(var(--tier) / 0.2);
   border-color: rgb(var(--tier) / 0.85);
   box-shadow: 0 0 16px rgb(var(--tier) / 0.32);
-  outline: 2px solid rgb(238 242 240 / 0.85);
+  outline: 2px solid rgb(var(--ring-rgb) / 0.85);
   outline-offset: 1px;
 }
 
@@ -1506,10 +1536,10 @@ h2 {
   background: rgb(var(--accent-rgb) / 0.08);
 }
 .btn-inline.danger {
-  color: #d98a86;
+  color: var(--neg);
 }
 .btn-inline.danger:hover {
-  color: #ff9d97;
+  color: var(--neg);
   border-color: rgb(var(--neg-rgb) / 0.5);
   background: rgb(var(--neg-rgb) / 0.12);
 }
@@ -1686,6 +1716,9 @@ h2 {
   top: 20px;
   right: 16px;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Brand mark, mirroring .account-corner on the left. Matching the account

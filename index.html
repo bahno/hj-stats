@@ -18,7 +18,20 @@
     <!-- Absolute: crawlers do not resolve a relative og:image against the page. -->
     <meta property="og:image" content="https://bahno.info/apple-touch-icon.png" />
     <meta name="twitter:card" content="summary" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#0a0d10" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var theme = stored === 'light' || stored === 'dark'
+            ? stored
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f6f7' : '#0a0d10');
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
