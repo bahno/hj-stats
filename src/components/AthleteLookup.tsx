@@ -48,6 +48,7 @@ import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
+import type { Favorite } from '../data/userData';
 import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../hooks/usePreferences';
 import { readParams, writeParams } from '../urlState';
@@ -187,6 +188,21 @@ function lookupFromUrl() {
         : null,
     query: params.get('q') ?? '',
   };
+}
+
+/**
+ * Which event group a favorite chip should search in. A favorite carries the
+ * disciplines it is followed in, so the chip goes to one of those rather than to
+ * whatever the picker happens to show — searching a sprinter in the shot put
+ * only ever produces "no athlete matching". The current selection wins when the
+ * athlete is followed in it, so clicking a chip while already in one of their
+ * events doesn't jerk the picker somewhere else. A favorite with no groups (a
+ * row written before the column existed) keeps the old behaviour.
+ */
+function groupForFavorite(fav: Favorite, selected: EventGroup): EventGroup {
+  const carried = counterpartGroup(selected, fav.gender);
+  if (fav.event_groups.length === 0 || fav.event_groups.includes(carried.slug)) return carried;
+  return findEventGroup(fav.event_groups[0], fav.gender) ?? carried;
 }
 
 function hitFromQualification(entry: QualificationEntry): Hit {
@@ -465,11 +481,7 @@ export function AthleteLookup() {
               type="button"
               className={`fav-chip ${f.gender}`}
               onClick={() => {
-                // A favorite is stored as a person + gender, with no event group, so
-                // the chip searches the currently-selected event (mapped to the
-                // favorite's gender). Athletes contest one group in practice; if they
-                // aren't in this one, the usual "no athlete matching" message says so.
-                const grp = counterpartGroup(group, f.gender);
+                const grp = groupForFavorite(f, group);
                 setGender(f.gender);
                 setGroup(grp);
                 setQuery(f.athlete_name);
@@ -519,6 +531,7 @@ export function AthleteLookup() {
                     slug={c.athleteUrlSlug}
                     name={c.athlete}
                     gender={gender}
+                    group={group}
                     onNotice={setNotice}
                   />
                 </span>
@@ -794,6 +807,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             slug={athleteUrlSlug}
             name={athlete}
             gender={gender}
+            group={group}
             onNotice={onNotice}
           />
         </div>
@@ -982,11 +996,15 @@ function FavoriteStar({
   slug,
   name,
   gender,
+  group,
   onNotice,
 }: {
   slug: string;
   name: string;
   gender: Gender;
+  /** The group the athlete was found in — the discipline a new favorite starts
+   *  out followed in. The star itself stays per person, not per discipline. */
+  group: EventGroup;
   onNotice: (msg: string) => void;
 }) {
   const { user } = useAuth();
@@ -1002,7 +1020,12 @@ function FavoriteStar({
         event.stopPropagation();
         if (!user) return onNotice('Sign in to save favorites.');
         onNotice('');
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch((e) =>
+        void toggle({
+          athlete_slug: slug,
+          athlete_name: name,
+          gender,
+          event_groups: [group.slug],
+        }).catch((e) =>
           onNotice(favoriteError(e)),
         );
       }}

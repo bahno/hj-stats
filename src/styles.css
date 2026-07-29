@@ -1592,6 +1592,49 @@ h2 {
   justify-content: center;
   padding: 7px 0;
 }
+/* The athlete's disciplines, on their own full-width line under the trigger
+   row — 36 groups will not fit in a column. `.notif-grow` is display:contents,
+   so this spans the grid rather than nesting inside a cell. */
+.notif-events {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+.notif-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.notif-event-x {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.notif-event-x:hover {
+  color: var(--text);
+}
+.notif-event-add {
+  padding: 2px 6px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
 
 /* Themed checkbox shared by the master toggle and the trigger grid. */
 .notif-check {

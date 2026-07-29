@@ -34,10 +34,9 @@ function takes it as a parameter.
 | `scripts/capture-oracle-fixtures.mjs` | captures WA payloads as committed fixtures |
 | `scripts/capture-deep-calculations.mjs` | surveys mid-table and lower-ranked athletes |
 
-**Verified state:** 40 test files / 421 tests pass, `npx tsc -b` exits 0, `npm run build`
-succeeds, `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exit 0.
-(The 40/413 recorded here before the UI work was already off by a file - the tree held 39
-files / 411 tests at that commit.)
+**Verified state:** 43 test files / 445 tests pass, `npx tsc -b` exits 0, `npm run build`
+succeeds. `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exited 0 at the
+end of the engine work and nothing since has touched the pipeline.
 
 ## What is next: the UI and storage plan
 
@@ -86,16 +85,33 @@ Because the app now writes to the URL and jsdom shares one window per test file,
 resets the query string before each test. Without it, an event picked in one test decides the
 starting state of the next.
 
-Two things deliberately left alone:
+**A favorite carries the disciplines it is followed in.** `favorites.event_groups text[]`
+(migration `0007_favorite_event_groups.sql`) holds ranking API slugs, same gender-neutral values
+as `profiles.default_event`. The product decision behind it: **a favorite is a person, not a
+person-in-an-event.** One row per athlete, so following Duplantis in the pole vault and the 100m
+costs one of the 50 favorite slots, not two, and the star stays per person - it lights up in
+every group, which is correct under this model. The set is edited in `NotificationSettings`,
+next to `notify_prefs`, as chips plus an add-select; the last discipline can't be removed, since
+a favorite followed in nothing is what un-starring is for. A new favorite starts out followed in
+whatever group the star was clicked in. A favorite chip in the lookup now searches one of the
+athlete's own disciplines rather than whatever the picker shows - the current selection if they
+are followed in it, otherwise their first.
+
+`notify-poll` still reads the high jump ranking only, so it now **skips favorites not followed
+in `high-jump`** rather than mailing high jump news about a sprinter. That filter is the seam
+section 3 widens.
+
+One thing deliberately left alone:
 
 - `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than
   reading `EventGroup.countingResults`. It only runs behind the high-jump gate now, so threading
   the field through today would be dead configurability. Do it when a group with a different
   count (combined events use 2) actually becomes reachable.
-- **A favorite is still a person + gender, with no event group** (see the schema note below). A
-  favorite chip therefore searches whichever event is selected, mapped to the favorite's gender.
-  That is only right because athletes contest one group in practice. Fix it in the schema, not
-  by guessing a group in the UI.
+
+**The product is called Track Rank.** `index.html`, `Logo.tsx`, `README.md`, the unsubscribe
+page and the notification From name all say so. The repo, the npm package name and the Pages
+base path are still `hj-stats` - renaming those is the user's call, and `/hj-stats/` is baked
+into every deployed asset URL.
 
 ### 2. Storage schema - this is the part that will bite
 
@@ -105,11 +121,10 @@ or two groups' pollers both write, snapshots **silently overwrite each other** a
 timeline becomes wrong without any error. This key must gain the event group. Needs a migration
 plus a backfill decision for existing rows (they are all high jump, so backfill is a constant).
 
-**`favorites` is unique on `(user_id, athlete_slug, gender)`** (`supabase/migrations/0001_init.sql:17`).
-Less broken, but it forces a product decision you should make deliberately rather than by
-default: is a favorite a *person* (follow Duplantis everywhere) or a *person in an event*
-(follow him in pole vault only)? Notification volume and the settings UI both hang off that
-answer. Do not let the schema decide it by accident.
+**`favorites` is unique on `(user_id, athlete_slug, gender)`** (`supabase/migrations/0001_init.sql:17`)
+and that stays. The person-vs-person-in-an-event question is **settled: a favorite is a person**,
+carrying an `event_groups text[]` of the disciplines to report on (migration `0007`). See
+section 1. Existing rows were backfilled to `high-jump`, which is what they all were.
 
 ### 3. Scaling the poller
 
@@ -117,6 +132,11 @@ answer. Do not let the schema decide it by accident.
 
 - line 92 - `if (c?.discipline !== 'High Jump') continue;`
 - lines 165 and 173 - `eventGroup: 'high-jump'` in the paginated ranking fetch
+
+`notify-poll/index.ts` now filters favorites to those whose `event_groups` contains `high-jump`,
+so the poller's reach is honest about what it actually reads. That filter is also the answer to
+"which groups does anyone actually follow" - the union of every favorite's `event_groups` is the
+poll set, and it will be far smaller than 72.
 
 Going to all groups means 36 groups x 2 genders = **72 paginated ranking fetches per poll**, up
 from 2. That is a different order of cost and runtime, and Deno edge functions have execution
