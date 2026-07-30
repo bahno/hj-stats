@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
-import type { CategoryCode, CountryScore, Gender, RankingType } from '../data/types';
-import { categories, scoringTable } from '../engine/data';
-import { availableMarks, defaultHeightFor } from '../engine/marks';
+import { useEffect, useMemo, useState } from 'react';
+import type { CategoryCode, CountryScore, RankingType } from '../data/types';
+import type { EventGroup } from '../data/events';
+import { categories } from '../engine/data';
+import { loadScoringTable, markNearestScore, type ParsedTable } from '../engine/scoring';
 import {
   countryRank,
   projectedPlace,
@@ -11,7 +12,7 @@ import {
   withinWorldRankingQuota,
 } from '../engine/simulate';
 import { CategorySelect } from './inputs/CategorySelect';
-import { HeightSelect } from './inputs/HeightSelect';
+import { MarkSelect } from './inputs/MarkSelect';
 import { PositionSelect } from './inputs/PositionSelect';
 
 type Tone = 'up' | 'down' | 'flat';
@@ -49,7 +50,7 @@ export interface RoadSimData {
 }
 
 export function SimulateResult({
-  gender,
+  group,
   baseScores,
   currentScore,
   currentPlace,
@@ -57,7 +58,7 @@ export function SimulateResult({
   road,
   rankingType,
 }: {
-  gender: Gender;
+  group: EventGroup;
   baseScores: number[];
   currentScore: number;
   currentPlace: number; // current European place
@@ -65,21 +66,57 @@ export function SimulateResult({
   road?: RoadSimData;
   rankingType: RankingType;
 }) {
-  const marks = useMemo(() => availableMarks(scoringTable, gender), [gender]);
-  const [mark, setMark] = useState(() => defaultHeightFor(scoringTable, gender));
+  const [table, setTable] = useState<ParsedTable | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [mark, setMark] = useState<number | null>(null);
   const [category, setCategory] = useState<CategoryCode>('A');
   const [place, setPlace] = useState(1);
 
-  const effectiveMark = marks.includes(mark) ? mark : defaultHeightFor(scoringTable, gender);
+  // The scoring tables are 1.1 MB combined, so each group's chunk is fetched on demand.
+  // Reload whenever the group changes, and ignore a resolve that lands after the user has
+  // moved on - otherwise a slow chunk can overwrite a newer group's table.
+  useEffect(() => {
+    let live = true;
+    setTable(null);
+    setLoadFailed(false);
+    setMark(null);
+    loadScoringTable(group)
+      .then((loaded) => {
+        if (!live) return;
+        setTable(loaded);
+        // Open at the athlete's own level rather than a constant that only ever suited
+        // the high jump.
+        setMark(markNearestScore(loaded, currentScore));
+      })
+      .catch(() => {
+        if (live) setLoadFailed(true);
+      });
+    return () => {
+      live = false;
+    };
+    // currentScore seeds the opening mark; it is deliberately not a dependency, so a
+    // ranking refresh does not yank the wheels back out from under the user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group]);
+
   const useBirmingham = rankingType === 'road' && !!road;
   const effBaseScores = useBirmingham ? road!.baseScores : baseScores;
   const effCurrentScore = useBirmingham ? road!.currentScore : currentScore;
 
+  // Null-safe so it can run above the loading guard: React forbids calling hooks
+  // conditionally, so every hook in this component must sit before the early returns.
   const sim = useMemo(() => {
-    const simScore = resultScoreFor(gender, effectiveMark, category, place);
-    const { newScore, counts, dropped } = recomputeRanking(effBaseScores, simScore);
+    if (!table || mark === null) {
+      return { simScore: 0, newScore: 0, counts: false, dropped: null as number | null };
+    }
+    const simScore = resultScoreFor(group, table, mark, category, place);
+    const { newScore, counts, dropped } = recomputeRanking(
+      effBaseScores,
+      simScore,
+      group.countingResults,
+    );
     return { simScore, newScore, counts, dropped };
-  }, [gender, effectiveMark, category, place, effBaseScores]);
+  }, [group, table, mark, category, place, effBaseScores]);
 
   const scoreD = delta(sim.newScore, effCurrentScore, false);
 
@@ -132,20 +169,32 @@ export function SimulateResult({
     };
   }, [rankingType, road, sim.newScore, peerScores, currentPlace]);
 
+  // Every hook above, every early return below.
+  if (loadFailed) {
+    return (
+      <p className="comps-hint muted" data-testid="sim-load-failed">
+        Couldn't load the scoring table for {group.mainEvent}.
+      </p>
+    );
+  }
+  if (!table || mark === null) {
+    return <p className="comps-hint muted">Loading scoring table…</p>;
+  }
+
   return (
     <div className="simulate">
       <div className="simulate-head">
         <div className="comps-label">Simulate a result</div>
       </div>
       <div className="fields">
-        <HeightSelect marks={marks} value={effectiveMark} onChange={setMark} rows={3} />
+        <MarkSelect table={table} value={mark} onChange={setMark} rows={3} />
         <CategorySelect categories={categories} value={category} onChange={setCategory} />
         <PositionSelect value={place} onChange={setPlace} rows={3} />
       </div>
 
       <div className="sim-outcome">
         <p className="sim-note">
-          This result scores <strong>{sim.simScore}</strong> (mark + placing).
+          This result scores <strong data-testid="sim-score">{sim.simScore}</strong> (mark + placing).
           {sim.counts
             ? sim.dropped != null
               ? ` It replaces your weakest counting result (${sim.dropped}).`

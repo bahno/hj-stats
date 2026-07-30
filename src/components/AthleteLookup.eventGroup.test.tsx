@@ -108,15 +108,19 @@ test('a result shows the event group its marks belong to, with no unit on a time
   expect(meta.textContent).not.toContain('9.95 ');
 });
 
-test('hides the simulator for an event with no scoring table, and says why', async () => {
+test('shows the simulator for a track event, which the old gate blocked', async () => {
+  // This used to assert the opposite: scoring_table.json held high jump alone, so every
+  // other group got a "scoring table hasn't been loaded" message instead of a simulator.
+  // src/data/scoring/ now covers all 36 groups, so the gate is gone.
   render(<AthleteLookup />);
   selectEvent('100m');
   fireEvent.change(screen.getByPlaceholderText('e.g. Tamberi'), { target: { value: 'Jacobs' } });
   fireEvent.click(screen.getByText('Get ranking'));
 
   await screen.findByText(row.athlete, { selector: '.lookup-name' });
-  expect(screen.queryByText('Simulate a result')).not.toBeInTheDocument();
-  expect(screen.getByTestId('no-scoring-table')).toHaveTextContent(/100m/);
+  // The table is fetched on demand, so the simulator arrives a tick after the athlete.
+  expect(await screen.findByText('Simulate a result')).toBeInTheDocument();
+  expect(screen.queryByTestId('no-scoring-table')).not.toBeInTheDocument();
 });
 
 test('keeps the simulator for high jump, which does have a scoring table', async () => {
@@ -125,7 +129,7 @@ test('keeps the simulator for high jump, which does have a scoring table', async
   fireEvent.click(screen.getByText('Get ranking'));
 
   await screen.findByText(row.athlete, { selector: '.lookup-name' });
-  expect(screen.getByText('Simulate a result')).toBeInTheDocument();
+  expect(await screen.findByText('Simulate a result')).toBeInTheDocument();
 });
 
 test('switching gender carries the event over, mapping the hurdles to their counterpart', async () => {

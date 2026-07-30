@@ -1,20 +1,38 @@
-import type { CategoryCode, CountryScore, Gender } from '../data/types';
-import { placingPoints, scoringTable } from './data';
-import { performanceScore, placingScore } from './score';
+import type { CategoryCode, CountryScore } from '../data/types';
+import type { EventGroup } from '../data/events';
+import { markPoints, type ParsedTable } from './scoring';
+import { placingPointsFor } from './placing';
 
-/** High Jump world/European ranking = average of the best 5 result scores. */
-export const COUNTING_RESULTS = 5;
-
-/** Combined counting score of one result: mark points + placing points. */
+/**
+ * Combined counting score of one simulated result: mark points + placing points.
+ *
+ * Placing comes from placingPointsFor rather than the Table-2.2-only placing_points.json,
+ * because Track & Field is not one placing table: the 5000m and 3000mSC groups score
+ * finals off Table 2.5 and the 10,000m group off Table 2.9. Winning a category A final is
+ * 100 under 2.2 but 56 under 2.9, so simulating those against 2.2 would be silently wrong.
+ *
+ * The simulator always asks "what if I place Nth in this competition", which is a final,
+ * so `round` is fixed and `advanced` is irrelevant. `discipline` is the group's main event
+ * - a Table 2.12 short label, deliberately not a feed long-name, so it never matches a
+ * byDiscipline override and the group's own final table applies.
+ */
 export function resultScoreFor(
-  gender: Gender,
+  group: EventGroup,
+  table: ParsedTable,
   mark: number,
   category: CategoryCode,
   place: number,
 ): number {
   return (
-    performanceScore(scoringTable, gender, mark) +
-    placingScore(placingPoints, category, place)
+    markPoints(table, mark) +
+    placingPointsFor({
+      group,
+      discipline: group.mainEvent,
+      category,
+      round: 'final',
+      place,
+      advanced: false,
+    })
   );
 }
 
@@ -31,12 +49,21 @@ export interface Recompute {
  * counting scores (already the athlete's best). Adding a result and keeping the
  * top N is the correct new best-N average, as long as the new result is within
  * the scoring window and none of the base results have aged out.
+ *
+ * `countingResults` comes from the event group. Every Track & Field group averages 5, but
+ * this used to be a module constant back when the simulator was gated to the high jump;
+ * now that 35 other groups can reach it, reading the group's own value is the difference
+ * between a fact and a trap.
  */
-export function recomputeRanking(base: number[], simScore: number): Recompute {
-  const keepCount = Math.min(COUNTING_RESULTS, base.length + 1);
+export function recomputeRanking(
+  base: number[],
+  simScore: number,
+  countingResults: number,
+): Recompute {
+  const keepCount = Math.min(countingResults, base.length + 1);
   const kept = [...base, simScore].sort((a, b) => b - a).slice(0, keepCount);
   const newScore = Math.floor(kept.reduce((sum, s) => sum + s, 0) / kept.length);
-  const atCapacity = base.length >= COUNTING_RESULTS;
+  const atCapacity = base.length >= countingResults;
   const min = base.length ? Math.min(...base) : -Infinity;
   const counts = !atCapacity || simScore > min;
   return { newScore, counts, dropped: counts && atCapacity ? min : null };
