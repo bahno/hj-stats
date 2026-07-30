@@ -36,21 +36,38 @@ export function MarkSelect({
       <span>Mark</span>
       <div className="mark-control">
         <div className="mark-wheels">
-          {wheels.map((wheel, i) =>
-            wheel.hidden ? null : (
+          {wheels.map((wheel, i) => {
+            if (wheel.hidden) return null;
+            const label = (o: number) =>
+              wheel.pad ? String(o).padStart(wheel.pad, '0') : String(o);
+
+            // The cascade can leave a wheel with exactly one reachable value: the 10,000m
+            // book lists roughly one mark per second, so for 79% of its minute:second
+            // pairs the hundredths are fully determined. Rendering that as a spinner
+            // invites a drag that cannot do anything, so show the digit instead. The slot
+            // keeps its place either way, so the row does not reflow.
+            if (wheel.options.length === 1) {
+              return (
+                <div className="wheel-fixed" key={wheel.key} aria-label={wheel.key} role="img">
+                  {label(wheel.options[0])}
+                </div>
+              );
+            }
+
+            return (
               <WheelPicker
                 key={wheel.key}
                 options={wheel.options.map<WheelOption>((o) => ({
                   value: o,
-                  label: wheel.pad ? String(o).padStart(wheel.pad, '0') : String(o),
+                  label: label(o),
                 }))}
                 value={selection[i]}
                 onChange={(next) => handle(i, next)}
                 ariaLabel={wheel.key}
                 rows={rows}
               />
-            ),
-          )}
+            );
+          })}
         </div>
         {/* The wheels show digit groups; this is the mark they add up to, written the way
             the feeds write it. It is also the only place a time over an hour reads
