@@ -1,6 +1,5 @@
 import { WheelPicker, type WheelOption } from './WheelPicker';
 import { compose, decompose, snapSelection, wheelsFor } from '../../engine/markWheels';
-import { formatMark } from '../../engine/mark';
 import type { ParsedTable } from '../../engine/scoring';
 
 /**
