@@ -69,10 +69,6 @@ export function MarkSelect({
             );
           })}
         </div>
-        {/* The wheels show digit groups; this is the mark they add up to, written the way
-            the feeds write it. It is also the only place a time over an hour reads
-            correctly - the minutes wheel counts total minutes, so a 1:13:43 shows 73. */}
-        <output className="mark-readout">{formatMark(value, table.spec)}</output>
       </div>
     </div>
   );
