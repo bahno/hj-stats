@@ -16,7 +16,7 @@ export function Logo() {
       viewBox="1 7 30 20"
       fill="none"
       role="img"
-      aria-label="hj-stats"
+      aria-label="Track Rank"
     >
       <defs>
         <linearGradient id="hj-logo-jump" x1="5" y1="0" x2="27" y2="0" gradientUnits="userSpaceOnUse">

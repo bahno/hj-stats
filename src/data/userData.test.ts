@@ -38,6 +38,6 @@ test('addFavorite throws on error', async () => {
     from: () => ({ data: null, error: { message: 'duplicate' } }),
   });
   await expect(
-    addFavorite('u1', { athlete_slug: 'x', athlete_name: 'X', gender: 'men' }),
+    addFavorite('u1', { athlete_slug: 'x', athlete_name: 'X', gender: 'men', event_groups: ['high-jump'] }),
   ).rejects.toBeTruthy();
 });

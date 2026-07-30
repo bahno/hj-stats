@@ -161,7 +161,7 @@ describe('notification settings data layer', () => {
         error: null,
       }),
     });
-    const fav = await addFavorite('u1', { athlete_slug: 's2', athlete_name: 'B', gender: 'women' });
+    const fav = await addFavorite('u1', { athlete_slug: 's2', athlete_name: 'B', gender: 'women', event_groups: ['high-jump'] });
     expect(fav.notify_prefs).toEqual(DEFAULT_NOTIFY_PREFS);
     expect(fav.notify_prefs).toEqual({
       place: true,
@@ -184,7 +184,7 @@ describe('notification settings data layer', () => {
         error: null,
       }),
     });
-    const fav = await addFavorite('u1', { athlete_slug: 's3', athlete_name: 'C', gender: 'men' });
+    const fav = await addFavorite('u1', { athlete_slug: 's3', athlete_name: 'C', gender: 'men', event_groups: ['high-jump'] });
     expect(fav.notify_prefs).toEqual({
       place: true,
       score: true,

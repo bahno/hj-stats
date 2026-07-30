@@ -19,11 +19,11 @@ vi.mock('../hooks/FavoritesContext', () => ({
 }));
 vi.mock('../data/athleteResultsApi', () => ({
   athleteIdFromSlug: () => 1,
-  fetchAthleteHighJumpResults: vi.fn(async () => []),
+  fetchAthleteResults: vi.fn(async () => []),
 }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
+  fetchRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -32,7 +32,7 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
 import { fetchRoadToBirmingham } from '../data/birminghamApi';
 
 const row: RankingRow = {
@@ -67,12 +67,12 @@ function roadData(qualifications: RoadToBirmingham['qualifications']): RoadToBir
 
 beforeEach(() => {
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: row.athleteUrlSlug, athlete_name: row.athlete, gender: 'men' },
+    { id: 'f1', athlete_slug: row.athleteUrlSlug, athlete_name: row.athlete, gender: 'men', event_groups: ['high-jump'] },
   ];
-  vi.mocked(fetchHighJumpRanking).mockReset();
+  vi.mocked(fetchRanking).mockReset();
   vi.mocked(fetchRankingCalculation).mockReset();
   vi.mocked(fetchRoadToBirmingham).mockReset();
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
+  vi.mocked(fetchRanking).mockResolvedValue({ rankDate: '2026-07-01', rows: [row] });
   vi.mocked(fetchRankingCalculation).mockResolvedValue(calc);
 });
 

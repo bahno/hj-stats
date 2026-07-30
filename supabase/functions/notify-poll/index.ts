@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   const admin = createAdmin();
   const channel = new EmailChannel(
     Deno.env.get('RESEND_API_KEY') ?? '',
-    Deno.env.get('NOTIFY_FROM_EMAIL') ?? 'HJ Stats <onboarding@resend.dev>',
+    Deno.env.get('NOTIFY_FROM_EMAIL') ?? 'Track Rank <onboarding@resend.dev>',
   );
   const unsubBase = `${Deno.env.get('SUPABASE_URL')!.replace('.supabase.co', '.functions.supabase.co')}/notify-unsubscribe`;
   const today = new Date().toISOString().slice(0, 10);
@@ -95,13 +95,19 @@ Deno.serve(async (req) => {
   const userIds = optedIn.map((s) => s.user_id);
   const { data: favRows, error: favoritesError } = await admin
     .from('favorites')
-    .select('user_id, athlete_slug, athlete_name, gender, notify_prefs, intro_sent')
+    .select('user_id, athlete_slug, athlete_name, gender, event_groups, notify_prefs, intro_sent')
     .in('user_id', userIds);
   if (favoritesError) {
     console.error('favorites query failed:', favoritesError);
     return json({ ok: false, error: 'favorites query failed' }, 500);
   }
-  const favorites = favRows ?? [];
+  // This poller still reads the high jump ranking only (see handoff section 3).
+  // A favorite now says which disciplines it is followed in, so anyone not
+  // followed in the high jump is skipped rather than mailed high jump news
+  // about a sprinter. Widening this is the poller-scaling work, not this change.
+  const favorites = (favRows ?? []).filter((f) =>
+    ((f.event_groups ?? []) as string[]).includes('high-jump'),
+  );
 
   // Digests owed from earlier runs that never reached their recipient. Merged
   // into this run's events below, so a failed send is genuinely retried rather

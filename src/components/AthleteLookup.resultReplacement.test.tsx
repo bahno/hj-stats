@@ -10,7 +10,7 @@ vi.mock('../hooks/FavoritesContext', () => ({
 vi.mock('../hooks/usePreferences', () => ({ usePreferences: () => ({ defaultGender: null }) }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(),
+  fetchRanking: vi.fn(),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -22,12 +22,12 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 vi.mock('../data/athleteResultsApi', async (orig) => ({
   ...(await orig<typeof import('../data/athleteResultsApi')>()),
-  fetchAthleteHighJumpResults: vi.fn(),
+  fetchAthleteResults: vi.fn(),
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
-import { fetchAthleteHighJumpResults } from '../data/athleteResultsApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchAthleteResults } from '../data/athleteResultsApi';
 
 const row: RankingRow = {
   id: 1,
@@ -100,9 +100,9 @@ const fullResults: AthleteResult[] = [
 ];
 
 beforeEach(() => {
-  vi.mocked(fetchHighJumpRanking).mockReset().mockResolvedValue({ rankDate: '08 JUL 2026', rows: [row] });
+  vi.mocked(fetchRanking).mockReset().mockResolvedValue({ rankDate: '08 JUL 2026', rows: [row] });
   vi.mocked(fetchRankingCalculation).mockReset().mockResolvedValue(calc);
-  vi.mocked(fetchAthleteHighJumpResults).mockReset().mockResolvedValue(fullResults);
+  vi.mocked(fetchAthleteResults).mockReset().mockResolvedValue(fullResults);
 });
 
 async function lookup() {

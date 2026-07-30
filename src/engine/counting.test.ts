@@ -1,17 +1,25 @@
-import { expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
+import { findEventGroup } from '../data/events';
+import spanovic from './__fixtures__/oracle/triple-jump-women.json';
+import { rankingWindow } from './window';
 import {
   allCountingInWindow,
   combinedScore,
   countingKey,
+  isCountableResult,
   oneYearEarlier,
   parsePlace,
   parseWaDate,
   recount,
   resultKey,
+  scoreResults,
   substitutePool,
   type CountingEntry,
   type RankableResult,
 } from './counting';
+
+const hjGroup = findEventGroup('high-jump', 'men')!;
+const sprintGroup = findEventGroup('100m', 'men')!;
 
 /**
  * Real WorldAthletics data for Oleh DOROSHCHUK (men's HJ, fetched 2026-07), used to verify
@@ -92,6 +100,7 @@ test('combinedScore adds placing points to the mark score', () => {
 
 const rankDate = parseWaDate('08 JUL 2026');
 const windowStart = oneYearEarlier(rankDate);
+const hjWindow = rankingWindow(hjGroup, rankDate);
 
 // The counting set as the app has it: official key + exact score, plus the lowest as the cap.
 const countingEntries: CountingEntry[] = counting.map((c, i) => ({
@@ -108,23 +117,27 @@ test('allCountingInWindow accepts a window covering the counting set, rejects on
 });
 
 test('an advancing championship qualification round is a substitute, scored qual-to-final', () => {
-  const subs = substitutePool(doroshchuk, windowStart, rankDate, countingKeys, cap);
+  const subs = substitutePool(doroshchuk, hjGroup, hjWindow, countingKeys, cap);
   // Tokyo Q1 advanced to the final (same competition), so it counts: 1135 + OW 70 = 1205,
   // ranked below the finals above it — never inflated by the round's own "1st" place.
   const q1 = subs.find((s) => s.competition === 'Tokyo' && s.race === 'Q1');
   expect(q1?.score).toBe(1205);
 });
 
-test('a qualification round with no final at the same competition is not a substitute', () => {
-  // Same data but strip the Tokyo final: the Q1 no longer "advanced", so it drops out.
+test('a qualification round with no final at the same competition scores its mark alone', () => {
+  // Same data but strip the Tokyo final: the Q1 no longer "advanced", so Table 2.4's
+  // "Q or q to Final" row doesn't apply and the round's own place (1st) has no column in
+  // that table — 0 placing points. It is still a countable result, so unlike the old
+  // finals-only pool it stays in, scored at its mark points alone.
   const noFinal = doroshchuk.filter((x) => !(x.competition === 'Tokyo' && x.race === 'F'));
-  const subs = substitutePool(noFinal, windowStart, rankDate, countingKeys, cap);
-  expect(subs.some((s) => s.competition === 'Tokyo' && s.race === 'Q1')).toBe(false);
+  const subs = substitutePool(noFinal, hjGroup, hjWindow, countingKeys, cap);
+  const q1 = subs.find((s) => s.competition === 'Tokyo' && s.race === 'Q1');
+  expect(q1?.score).toBe(1135);
 });
 
 test('flight finals (F1/F2) are treated as finals, not skipped', () => {
   const results = [r('02 MAY 2026', 'NCAA Meet', 'F', 'F1', '1.', 1188)]; // a flight-1 final
-  const subs = substitutePool(results, windowStart, rankDate, new Set(), 2000);
+  const subs = substitutePool(results, hjGroup, hjWindow, new Set(), 2000);
   expect(subs).toHaveLength(1);
   expect(subs[0].score).toBe(1199); // 1188 + F-place-1 placing (11)
 });
@@ -137,23 +150,26 @@ test('a counting qual is excluded from substitutes even though its place drifts 
     r('20 JUL 2025', 'Local', 'C', 'F', '1.', 1120), // a genuine substitute
   ];
   const keys = new Set([countingKey({ date: '14 SEP 2025', category: 'OW', place: '9.', resultScore: 1135 })]);
-  const subs = substitutePool(results, windowStart, rankDate, keys, 1205);
+  const subs = substitutePool(results, hjGroup, hjWindow, keys, 1205);
   expect(subs.some((s) => s.race === 'Q2')).toBe(false); // not duplicated as a substitute
   expect(subs.some((s) => s.competition === 'Local')).toBe(true);
 });
 
-test('a qualification round in a non-championship category is not scorable as a substitute', () => {
+test('a qualification round in a non-championship category scores its mark alone', () => {
   const local = [
     r('01 JUN 2026', 'Local', 'B', 'F', '1.', 1100), // a final at the same competition
     r('01 JUN 2026', 'Local', 'B', 'Q1', '1.', 1100), // B-tier qual — no qual-to-final value
   ];
-  const subs = substitutePool(local, windowStart, rankDate, new Set(), 2000);
-  expect(subs.some((s) => s.race === 'Q1')).toBe(false);
-  expect(subs.some((s) => s.race === 'F')).toBe(true);
+  const subs = substitutePool(local, hjGroup, hjWindow, new Set(), 2000);
+  // Rounds before the final only score in OW/DF/GW/GL (Table 2.4 has no B column), so the
+  // qual gets 0 placing points — but it is still a countable result, so it stays in the pool
+  // at its mark points rather than being dropped as the old finals-only filter did.
+  expect(subs.find((s) => s.race === 'Q1')?.score).toBe(1100);
+  expect(subs.find((s) => s.race === 'F')?.score).toBe(1170); // Table 2.2, B, 1st: +70
 });
 
 test('substitutePool excludes out-of-window results and anything above the cap', () => {
-  const subs = substitutePool(doroshchuk, windowStart, rankDate, countingKeys, cap);
+  const subs = substitutePool(doroshchuk, hjGroup, hjWindow, countingKeys, cap);
   const comps = subs.map((s) => s.competition);
   expect(comps).not.toContain('Monaco'); // 10 JUL 2026 — past the window end (and above cap)
   expect(comps).not.toContain('Roma'); // 06 JUN 2025 — before the window start
@@ -163,7 +179,7 @@ test('substitutePool excludes out-of-window results and anything above the cap',
 });
 
 test('the top substitute (next to slide in) is Doha', () => {
-  const subs = substitutePool(doroshchuk, windowStart, rankDate, countingKeys, cap);
+  const subs = substitutePool(doroshchuk, hjGroup, hjWindow, countingKeys, cap);
   expect(subs[0].competition).toBe('Doha');
   expect(subs[0].score).toBe(1236);
 });
@@ -171,13 +187,13 @@ test('the top substitute (next to slide in) is Doha', () => {
 test('a high-scoring result WA has not counted yet is capped out, not treated as the 6th', () => {
   // Even with a window end past Monaco (1337), the cap keeps it out of the substitutes.
   const badEnd = parseWaDate('26 JUL 2026');
-  const subs = substitutePool(doroshchuk, oneYearEarlier(badEnd), badEnd, countingKeys, cap);
+  const subs = substitutePool(doroshchuk, hjGroup, rankingWindow(hjGroup, badEnd), countingKeys, cap);
   expect(subs.some((s) => s.competition === 'Monaco')).toBe(false);
   expect(subs[0].competition).toBe('Doha');
 });
 
 test('removing a counting competition slides in the next best and re-averages', () => {
-  const subs = substitutePool(doroshchuk, windowStart, rankDate, countingKeys, cap);
+  const subs = substitutePool(doroshchuk, hjGroup, hjWindow, countingKeys, cap);
   const removed = new Set([resultKey({ date: '16 AUG 2025', category: 'GW', place: '3.', resultScore: 1161 })]); // Chorzów (1271)
   const { substitutesUsed, baseScores, average } = recount(countingEntries, removed, subs);
   expect(substitutesUsed).toHaveLength(1);
@@ -217,7 +233,7 @@ const hrubaEntries: CountingEntry[] = hrubaCounting.map((c, i) => ({
 
 test('a counted qualification round is honoured but never re-scored as a substitute', () => {
   const keys = new Set(hrubaCounting.map(countingKey));
-  const subs = substitutePool(hruba, parseWaDate('12 JUL 2025'), parseWaDate('12 JUL 2026'), keys, 1171);
+  const subs = substitutePool(hruba, hjGroup, rankingWindow(hjGroup, parseWaDate('12 JUL 2026')), keys, 1171);
   // The qualification round is not offered as a substitute...
   expect(subs.some((s) => s.race === 'Q2')).toBe(false);
   // ...and the real next-best is the Zagreb final at 1163 (A place 8), within the cap.
@@ -228,4 +244,103 @@ test('a counted qualification round is honoured but never re-scored as a substit
   const removed = new Set([resultKey(hrubaCounting[4])]);
   const { average } = recount(hrubaEntries, removed, subs);
   expect(average).toBe(1183);
+});
+
+const result = (over: Partial<RankableResult> = {}): RankableResult => ({
+  date: '01 JUN 2026', competition: 'Meet', competitionId: 'c1', race: 'F',
+  discipline: 'High Jump', category: 'A', place: '1.', resultScore: 1200, ...over,
+});
+
+describe('isCountableResult', () => {
+  it('accepts a discipline belonging to the group', () => {
+    expect(isCountableResult(result(), hjGroup)).toBe(true);
+  });
+
+  it('rejects a discipline from another group', () => {
+    expect(isCountableResult(result({ discipline: '100 Metres' }), hjGroup)).toBe(false);
+  });
+
+  it('accepts a similar event inside the same group', () => {
+    const sprint = result({ discipline: '60 Metres' });
+    expect(isCountableResult(sprint, sprintGroup)).toBe(sprintGroup.disciplines.includes('60 Metres'));
+  });
+
+  // Was asserted the other way round until the oracle fixtures disproved it: World
+  // Athletics counts wind-aided marks in the rankings (see isCountableResult).
+  it('accepts a result flagged not legal', () => {
+    expect(isCountableResult(result({ notLegal: true }), hjGroup)).toBe(true);
+  });
+});
+
+describe('scoreResults', () => {
+  it('scores a final as mark points plus placing points', () => {
+    const [scored] = scoreResults([result({ category: 'OW', place: '6.' })], hjGroup);
+    expect(scored.score).toBe(1200 + 160); // Table 2.2, OW, 6th
+  });
+
+  it('scores an advancing qualification round from the round table', () => {
+    const qual = result({ race: 'Q1', category: 'OW', place: '5.', resultScore: 1135 });
+    const final = result({ race: 'F', category: 'OW', place: '4.' });
+    const scored = scoreResults([qual, final], hjGroup);
+    const qualScore = scored.find((s) => s.race === 'Q1');
+    expect(qualScore?.score).toBe(1135 + 70); // Table 2.4, "Q or q to Final"
+  });
+
+  it('scores a heat behind a semi-final at nothing extra', () => {
+    const heat = result({ discipline: '100 Metres', race: 'H', category: 'OW', resultScore: 1249 });
+    const semi = result({ discipline: '100 Metres', race: 'SF', category: 'OW', place: '3.' });
+    const final = result({ discipline: '100 Metres', race: 'F', category: 'OW', place: '2.' });
+    const scored = scoreResults([heat, semi, final], sprintGroup);
+    expect(scored.find((s) => s.race === 'H')?.score).toBe(1249);
+  });
+});
+
+/**
+ * Some feeds list one round twice: the legal best and the wind-aided best of the same jump
+ * series arrive as two rows sharing competition, discipline, date and round. Ivana ŠPANOVIĆ's
+ * oracle fixture has three such pairs. World Athletics counts the wind-aided 14.43 (1146) at
+ * the Serbian Championships on 02 AUG 2025; the shadow row is a 14.13 (1131) with a blank
+ * place. Because the counting exclusion keys on `resultScore`, the shadow is not recognised
+ * as already counting and offers itself as a substitute from a competition that is already
+ * in the counting set — a phantom that would inflate a recount.
+ */
+describe('duplicate rows for one round', () => {
+  const tjGroup = findEventGroup('triple-jump', 'women')!;
+  const tjWindow = rankingWindow(tjGroup, parseWaDate(spanovic.rankDate));
+  const tjKeys = new Set(spanovic.calculation.results.map(countingKey));
+  const tjCap = Math.min(...spanovic.calculation.results.map((c) => c.performanceScore));
+  const tjSubs = () => substitutePool(spanovic.results, tjGroup, tjWindow, tjKeys, tjCap);
+
+  it('does not offer the shadow row of an already-counted round as a substitute', () => {
+    expect(tjSubs().some((s) => s.date === '02 AUG 2025')).toBe(false);
+  });
+
+  it('collapses a duplicated round to a single candidate', () => {
+    // 20 JUN 2026, Slovenian Championships: 13.30 legal and 13.49 wind-aided, both "OC",
+    // both scored 1046 by World Athletics. One jump series, so one candidate.
+    expect(tjSubs().filter((s) => s.date === '20 JUN 2026')).toHaveLength(1);
+  });
+
+  it('keeps a qualification and a final held at one competition on one day', () => {
+    // Same competition, same discipline, same date — a different round, so a real second
+    // result. Only the round code tells them apart, and it must stay decisive.
+    const champs = [
+      r('01 JUN 2026', 'Champs', 'OW', 'Q1', '5.', 1135),
+      r('01 JUN 2026', 'Champs', 'OW', 'F', '3.', 1188),
+    ];
+    const subs = substitutePool(champs, hjGroup, hjWindow, new Set(), 2000);
+    expect(subs.map((s) => s.race).sort()).toEqual(['F', 'Q1']);
+  });
+});
+
+describe('substitutePool with an event group', () => {
+  it('excludes results already counting and anything above the cap', () => {
+    const window = rankingWindow(hjGroup, parseWaDate('21 JUL 2026'));
+    const pool = substitutePool(
+      [result({ resultScore: 1300 }), result({ date: '02 JUN 2026', resultScore: 1000 })],
+      hjGroup, window, new Set(), 1100,
+    );
+    expect(pool).toHaveLength(1);
+    expect(pool[0].resultScore).toBe(1000);
+  });
 });

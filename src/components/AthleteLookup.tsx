@@ -4,7 +4,7 @@ import {
   type RankingType,
   type RankingCalculation,
   type RankingRow,
-  fetchHighJumpRanking,
+  fetchRanking,
   fetchRankingCalculation,
 } from '../data/rankingApi';
 import {
@@ -19,7 +19,7 @@ import {
 } from '../data/birminghamApi';
 import {
   athleteIdFromSlug,
-  fetchAthleteHighJumpResults,
+  fetchAthleteResults,
   type AthleteResult,
 } from '../data/athleteResultsApi';
 import {
@@ -32,13 +32,26 @@ import {
   substitutePool,
   type CountingEntry,
 } from '../engine/counting';
+import {
+  DEFAULT_EVENT_SLUG,
+  counterpartGroup,
+  findEventGroup,
+  type EventGroup,
+} from '../data/events';
+import { scoringTable } from '../engine/data';
+import { markSuffix } from '../engine/mark';
+import { hasScoringTable } from '../engine/marks';
+import { fixedPeriodWindow, rankingWindow } from '../engine/window';
+import { EventGroupSelect } from './inputs/EventGroupSelect';
 import { GenderToggle } from './inputs/GenderToggle';
 import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
+import type { Favorite } from '../data/userData';
 import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../hooks/usePreferences';
+import { readParams, writeParams } from '../urlState';
 
 function normalize(s: string): string {
   return s
@@ -115,6 +128,9 @@ interface Found {
   athleteUrlSlug: string;
   nationality: string;
   gender: Gender;
+  /** The event group the lookup ran in — held with the result, like gender, so a
+   *  later change to the picker can't relabel an athlete already on screen. */
+  group: EventGroup;
   /**
    * null when the athlete has no World Ranking entry at all — e.g. qualified for
    * Birmingham purely by hitting the entry standard, without the 5 counting results a
@@ -134,7 +150,7 @@ interface Found {
 /**
  * A search match — either a ranked athlete or one found only in the Road to Birmingham
  * qualification list. Entry-standard qualifiers (and other fixed-route qualifiers) don't
- * need a World Ranking place at all, so they can be entirely absent from `fetchHighJumpRanking`
+ * need a World Ranking place at all, so they can be entirely absent from `fetchRanking`
  * while still being a real, qualified-for-Birmingham hit that a search should surface.
  */
 interface Hit {
@@ -150,6 +166,45 @@ function hitFromRow(row: RankingRow): Hit {
   return { athlete: row.athlete, athleteUrlSlug: row.athleteUrlSlug, nationality: row.nationality, row };
 }
 
+/**
+ * The lookup's slice of the query string, read once at mount. An event slug is
+ * gender-neutral, so it resolves against whatever gender the link names (men by
+ * default); a slug that names no group is dropped rather than treated as an error,
+ * since a link can outlive a rename.
+ */
+function lookupFromUrl() {
+  const params = readParams();
+  const genderParam = params.get('gender');
+  const gender: Gender | null =
+    genderParam === 'men' || genderParam === 'women' ? genderParam : null;
+  const slug = params.get('event');
+  const typeParam = params.get('type');
+  return {
+    gender,
+    group: slug ? (findEventGroup(slug, gender ?? 'men') ?? null) : null,
+    rankingType:
+      typeParam === 'world' || typeParam === 'european' || typeParam === 'road'
+        ? (typeParam as RankingType)
+        : null,
+    query: params.get('q') ?? '',
+  };
+}
+
+/**
+ * Which event group a favorite chip should search in. A favorite carries the
+ * disciplines it is followed in, so the chip goes to one of those rather than to
+ * whatever the picker happens to show — searching a sprinter in the shot put
+ * only ever produces "no athlete matching". The current selection wins when the
+ * athlete is followed in it, so clicking a chip while already in one of their
+ * events doesn't jerk the picker somewhere else. A favorite with no groups (a
+ * row written before the column existed) keeps the old behaviour.
+ */
+function groupForFavorite(fav: Favorite, selected: EventGroup): EventGroup {
+  const carried = counterpartGroup(selected, fav.gender);
+  if (fav.event_groups.length === 0 || fav.event_groups.includes(carried.slug)) return carried;
+  return findEventGroup(fav.event_groups[0], fav.gender) ?? carried;
+}
+
 function hitFromQualification(entry: QualificationEntry): Hit {
   return {
     athlete: entry.competitor.name,
@@ -161,56 +216,92 @@ function hitFromQualification(entry: QualificationEntry): Hit {
 }
 
 export function AthleteLookup() {
-  const [gender, setGender] = useState<Gender>('men');
-  const [rankingType, setRankingType] = useState<RankingType>('road')
-  const [query, setQuery] = useState('');
+  // Read once: later writes to the URL are this component's own, and re-reading
+  // them would fight the state they came from.
+  const fromUrl = useRef(lookupFromUrl()).current;
+  const [gender, setGender] = useState<Gender>(fromUrl.gender ?? fromUrl.group?.gender ?? 'men');
+  const [group, setGroup] = useState<EventGroup>(
+    () => fromUrl.group ?? findEventGroup(DEFAULT_EVENT_SLUG, fromUrl.gender ?? 'men')!,
+  );
+  const [rankingType, setRankingType] = useState<RankingType>(fromUrl.rankingType ?? 'road')
+  const [query, setQuery] = useState(fromUrl.query);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [candidates, setCandidates] = useState<Hit[]>([]);
   const [found, setFound] = useState<Found | null>(null);
   const { user } = useAuth();
   const { favorites } = useFavorites();
-  // One slot for anything the star button needs to say: not signed in, at the
-  // favorites cap, or a save that failed. Silently doing nothing is worse.
-  const [favNotice, setFavNotice] = useState('');
-  const { defaultGender } = usePreferences();
+  // One slot for anything above the form that needs saying: the star button's
+  // not-signed-in / at-the-cap / save-failed cases, and a default-event save
+  // that failed. Silently doing nothing is worse.
+  const [notice, setNotice] = useState('');
+  const { defaultGender, defaultEvent, setDefaultEvent } = usePreferences();
   // Every lookup takes a ticket; only the newest one is allowed to write state.
   // Without this, two quick searches race and the slower response wins, showing
   // one athlete's data under another's name.
   const requestId = useRef(0);
+  // Saved preferences arrive after the first render. The event group is stored as
+  // a gender-neutral slug, so it only resolves once the effective gender is known;
+  // a slug that no longer names a group (renamed upstream, or hand-edited) falls
+  // back to carrying the current selection over rather than erroring.
   useEffect(() => {
-    if (defaultGender) setGender(defaultGender);
+    // A link is more specific than a saved default. If the URL said anything at all
+    // about the lookup, it wins outright — applying half a preference on top of half
+    // a link would leave the picker and the athlete on screen describing different
+    // rankings.
+    if (fromUrl.gender || fromUrl.group || fromUrl.query) return;
+    if (!defaultGender && !defaultEvent) return;
+    const g = defaultGender ?? gender;
+    setGender(g);
+    setGroup((prev) => (defaultEvent && findEventGroup(defaultEvent, g)) || counterpartGroup(prev, g));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultGender]);
+  }, [defaultGender, defaultEvent]);
 
-  // Ranking lists are cached per gender so repeated searches don't refetch.
-  // The TTL keeps a long-lived tab from showing last week's ranking forever.
+  // A link that names an athlete resolves it on load, so the URL alone reproduces
+  // the screen it was copied from.
+  useEffect(() => {
+    if (!fromUrl.query) return;
+    void runLookup(fromUrl.query, group);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Ranking lists are cached per event group (gender included, since a group is
+  // one gender's) so repeated searches don't refetch. The TTL keeps a long-lived
+  // tab from showing last week's ranking forever.
   const CACHE_TTL_MS = 15 * 60 * 1000;
   const [cache] = useState(
-    () => new Map<Gender, { at: number; data: { rankDate: string; rows: RankingRow[] } }>(),
+    () => new Map<string, { at: number; data: { rankDate: string; rows: RankingRow[] } }>(),
   );
-  const [roadCache] = useState(() => new Map<Gender, { at: number; data: RoadToBirminghamData }>());
+  const [roadCache] = useState(() => new Map<string, { at: number; data: RoadToBirminghamData }>());
+
+  function cacheKey(grp: EventGroup): string {
+    return `${grp.slug}:${grp.gender}`;
+  }
 
   function fresh<T>(entry: { at: number; data: T } | undefined): T | null {
     return entry && Date.now() - entry.at < CACHE_TTL_MS ? entry.data : null;
   }
 
-  async function ranking(g: Gender) {
-    const hit = fresh(cache.get(g));
+  async function ranking(grp: EventGroup) {
+    const key = cacheKey(grp);
+    const hit = fresh(cache.get(key));
     if (hit) return hit;
-    const data = await fetchHighJumpRanking(g);
-    cache.set(g, { at: Date.now(), data });
+    const data = await fetchRanking(grp.slug, grp.gender);
+    cache.set(key, { at: Date.now(), data });
     return data;
   }
 
   // Road to Birmingham is undocumented and can fail/change shape independently of the
   // core ranking lookup — a failure here degrades to "not tracked", never blocks select().
-  async function roadToBirmingham(g: Gender): Promise<RoadToBirminghamData | null> {
-    const hit = fresh(roadCache.get(g));
+  // It also throws outright for a group Birmingham doesn't stage, which is a normal
+  // outcome now that all 36 groups are selectable, not an error worth surfacing.
+  async function roadToBirmingham(grp: EventGroup): Promise<RoadToBirminghamData | null> {
+    const key = cacheKey(grp);
+    const hit = fresh(roadCache.get(key));
     if (hit) return hit;
     try {
-      const data = await fetchRoadToBirmingham(g);
-      roadCache.set(g, { at: Date.now(), data });
+      const data = await fetchRoadToBirmingham(grp);
+      roadCache.set(key, { at: Date.now(), data });
       return data;
     } catch (e) {
       console.warn('Road to Birmingham fetch failed', e);
@@ -226,7 +317,8 @@ export function AthleteLookup() {
     return requestId.current === ticket;
   }
 
-  async function select(hit: Hit, g: Gender, ticket: number = nextTicket()) {
+  async function select(hit: Hit, grp: EventGroup, ticket: number = nextTicket()) {
+    const g = grp.gender;
     setStatus('loading');
     setCandidates([]);
     setFound(null);
@@ -235,8 +327,8 @@ export function AthleteLookup() {
         const row = hit.row;
         const [calc, list, road] = await Promise.all([
           fetchRankingCalculation(row.id),
-          ranking(g),
-          roadToBirmingham(g),
+          ranking(grp),
+          roadToBirmingham(grp),
         ]);
         const roadCalculationId = road
           ? findQualification(road, row.athleteUrlSlug)?.qualificationDetails.calculationId
@@ -254,6 +346,7 @@ export function AthleteLookup() {
           athleteUrlSlug: row.athleteUrlSlug,
           nationality: row.nationality,
           gender: g,
+          group: grp,
           ranked: { row, calc, peers: list.rows },
           road,
           roadCalc,
@@ -263,13 +356,14 @@ export function AthleteLookup() {
         // No World Ranking entry — e.g. an entry-standard qualifier with too few counting
         // results for a ranking score. Everything we can show comes from the Road to
         // Birmingham qualification entry itself.
-        const road = await roadToBirmingham(g);
+        const road = await roadToBirmingham(grp);
         if (!isCurrent(ticket)) return;
         setFound({
           athlete: hit.athlete,
           athleteUrlSlug: hit.athleteUrlSlug,
           nationality: hit.nationality,
           gender: g,
+          group: grp,
           ranked: null,
           road,
           roadCalc: null,
@@ -284,13 +378,13 @@ export function AthleteLookup() {
     }
   }
 
-  async function runLookup(q: string, g: Gender, ticket: number = nextTicket()) {
+  async function runLookup(q: string, grp: EventGroup, ticket: number = nextTicket()) {
     setStatus('loading');
     setMessage('');
     setFound(null);
     setCandidates([]);
     try {
-      const [{ rows }, road] = await Promise.all([ranking(g), roadToBirmingham(g)]);
+      const [{ rows }, road] = await Promise.all([ranking(grp), roadToBirmingham(grp)]);
       const rankedHits = rows.filter((r) => matches(q, r.athlete)).map(hitFromRow);
       const rankedSlugs = new Set(rankedHits.map((h) => h.athleteUrlSlug));
       // Qualifiers with no World Ranking entry (e.g. by entry standard) are otherwise
@@ -303,9 +397,11 @@ export function AthleteLookup() {
       if (!isCurrent(ticket)) return; // a newer lookup superseded this one
       if (hits.length === 0) {
         setStatus('error');
-        setMessage(`No ${g}'s high-jumper matching "${q}" in the current ranking or Road to Birmingham list.`);
+        setMessage(
+          `No athlete matching "${q}" in the ${grp.label} ranking or Road to Birmingham list.`,
+        );
       } else if (hits.length === 1) {
-        await select(hits[0], g, ticket);
+        await select(hits[0], grp, ticket);
       } else {
         setCandidates(hits.slice(0, 12));
         setStatus('idle');
@@ -320,14 +416,14 @@ export function AthleteLookup() {
   async function search(e: FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
-    await runLookup(query, gender);
+    writeParams({ gender, event: group.slug, q: query });
+    await runLookup(query, group);
   }
 
-  // Rankings are per-gender, so switching gender clears the current athlete
-  // and results — otherwise a favorite's name lingers under the wrong gender.
-  function changeGender(g: Gender) {
-    nextTicket(); // discard anything still in flight for the old gender
-    setGender(g);
+  /** Shared by the gender and event pickers: a different ranking list means the
+   *  athlete on screen no longer belongs there. */
+  function resetLookup() {
+    nextTicket(); // discard anything still in flight for the old ranking
     setQuery('');
     setFound(null);
     setCandidates([]);
@@ -335,8 +431,41 @@ export function AthleteLookup() {
     setMessage('');
   }
 
+  // Rankings are per-gender, so switching gender clears the current athlete
+  // and results — otherwise a favorite's name lingers under the wrong gender.
+  // The event selection carries over to the other gender's equivalent group.
+  function changeGender(g: Gender) {
+    const next = counterpartGroup(group, g);
+    setGender(g);
+    setGroup(next);
+    resetLookup();
+    // Save the counterpart's slug, not the one being left: the hurdles differ by
+    // gender, so '110mh' would resolve to nothing under 'women' on the next load.
+    saveDefaultEvent(next);
+    // resetLookup clears the athlete, so the URL must drop it too rather than keep
+    // pointing at someone who is no longer on screen.
+    writeParams({ gender: g, event: next.slug, q: null });
+  }
+
+  function changeGroup(next: EventGroup) {
+    setGroup(next);
+    resetLookup();
+    saveDefaultEvent(next);
+    writeParams({ gender: next.gender, event: next.slug, q: null });
+  }
+
+  // Mirrors how the calculator's gender toggle writes default_gender: the pick
+  // takes effect either way, but a failure to remember it is said out loud. A
+  // signed-out user has nowhere to write, and setDefaultEvent no-ops.
+  function saveDefaultEvent(g: EventGroup) {
+    void setDefaultEvent(g.slug).catch(() =>
+      setNotice("Couldn't save this as your default event."),
+    );
+  }
+
   function changeRankingType(r: RankingType) {
     setRankingType(r);
+    writeParams({ type: r });
     setStatus('idle');
     setCandidates([]);
     setMessage('');
@@ -352,9 +481,12 @@ export function AthleteLookup() {
               type="button"
               className={`fav-chip ${f.gender}`}
               onClick={() => {
+                const grp = groupForFavorite(f, group);
                 setGender(f.gender);
+                setGroup(grp);
                 setQuery(f.athlete_name);
-                void runLookup(f.athlete_name, f.gender);
+                writeParams({ gender: f.gender, event: grp.slug, q: f.athlete_name });
+                void runLookup(f.athlete_name, grp);
               }}
             >
               ★ {f.athlete_name}
@@ -362,9 +494,10 @@ export function AthleteLookup() {
           ))}
         </div>
       )}
-      {favNotice && <p className="lookup-msg">{favNotice}</p>}
+      {notice && <p className="lookup-msg">{notice}</p>}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={changeGender} />
+        <EventGroupSelect value={group} gender={gender} onChange={changeGroup} />
         <label className="field">
           <span>Athlete</span>
           <input
@@ -390,7 +523,7 @@ export function AthleteLookup() {
               <button
                 type="button"
                 className="lookup-candidates-element"
-                onClick={() => select(c, gender)}
+                onClick={() => select(c, group)}
               >
                 <span>
                   <span>{c.athlete}</span>
@@ -398,7 +531,8 @@ export function AthleteLookup() {
                     slug={c.athleteUrlSlug}
                     name={c.athlete}
                     gender={gender}
-                    onNotice={setFavNotice}
+                    group={group}
+                    onNotice={setNotice}
                   />
                 </span>
                 <span className="muted" style={{ marginLeft: 'auto' }}>
@@ -418,7 +552,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setFavNotice} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setNotice} />}
     </section>
   );
 }
@@ -495,16 +629,17 @@ function yearsInRange(startMs: number, endMs: number): number[] {
 type ResultsState = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * Lazily loads an athlete's full High Jump result list from WorldAthletics (see
+ * Lazily loads an athlete's result list for one event group from WorldAthletics (see
  * athleteResultsApi.ts) once we have a window to fetch. Powers the "remove a counting
  * competition and slot in the next best" feature; on any failure it stays in `error` and
  * the feature simply doesn't offer removal, never blocking the core lookup.
  */
-function useAthleteResults(slug: string, years: number[], enabled: boolean) {
+function useAthleteResults(slug: string, years: number[], disciplines: string[], enabled: boolean) {
   const [results, setResults] = useState<AthleteResult[] | null>(null);
   const [state, setState] = useState<ResultsState>('idle');
   // Stable dependency so we refetch only when the athlete or the fetched years change.
   const yearsKey = years.join(',');
+  const disciplinesKey = disciplines.join(',');
   useEffect(() => {
     setResults(null);
     if (!enabled || years.length === 0) {
@@ -518,7 +653,7 @@ function useAthleteResults(slug: string, years: number[], enabled: boolean) {
     }
     let cancelled = false;
     setState('loading');
-    fetchAthleteHighJumpResults(id, years)
+    fetchAthleteResults(id, years, disciplines)
       .then((rs) => {
         if (cancelled) return;
         setResults(rs);
@@ -533,12 +668,13 @@ function useAthleteResults(slug: string, years: number[], enabled: boolean) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, yearsKey, enabled]);
+  }, [slug, yearsKey, disciplinesKey, enabled]);
   return { results, state };
 }
 
 function Result({ found, onNotice, rankingType, changeRankingType }: { found: Found; onNotice: (msg: string) => void, rankingType: RankingType, changeRankingType: (r: RankingType) => void }) {
-  const { athlete, athleteUrlSlug, nationality, gender, ranked, road, roadCalc } = found;
+  const { athlete, athleteUrlSlug, nationality, gender, group, ranked, road, roadCalc } = found;
+  const unit = markSuffix(group.mark);
   const results = ranked?.calc.results ?? [];
   const baseScores = results.map((r) => r.performanceScore);
   const peerScores = ranked ? ranked.peers.filter((p) => p.id !== ranked.row.id).map((p) => p.rankingScore) : [];
@@ -593,6 +729,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
   const { results: allResults, state: resultsState } = useAthleteResults(
     athleteUrlSlug,
     fetchYears,
+    group.disciplines,
     !!ranked,
   );
 
@@ -610,8 +747,18 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
     // Exclude the counting results by a place-independent key (a qual's place drifts between
     // the calc and profile feeds), so an already-counting result can't reappear as a substitute.
     const keys = new Set(displayedResults.map(countingKey));
-    return substitutePool(allResults, activeWindow.start, activeWindow.end, keys, cap);
-  }, [allResults, windowValid, activeWindow, displayedResults, cap]);
+    // Road runs on Birmingham's own published qualification period, which is fixed and
+    // admits no Area Championships allowance. World and European rankings keep the rolling
+    // ranking period's bounds from activeWindow plus that allowance.
+    const window = onRoad
+      ? fixedPeriodWindow(activeWindow.start, activeWindow.end)
+      : {
+          ...rankingWindow(group, activeWindow.end),
+          startMs: activeWindow.start,
+          endMs: activeWindow.end,
+        };
+    return substitutePool(allResults, group, window, keys, cap);
+  }, [allResults, windowValid, activeWindow, displayedResults, cap, gender, onRoad, group]);
 
   // Offer replacement only when the window is sound: valid bounds and every official counting
   // result sits inside it (a wrong rank date would put one outside and make the 6th unreliable).
@@ -660,10 +807,11 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             slug={athleteUrlSlug}
             name={athlete}
             gender={gender}
+            group={group}
             onNotice={onNotice}
           />
         </div>
-        <div className="muted">{nationality} · High Jump</div>
+        <div className="muted">{nationality} · {group.mainEvent}</div>
       </div>
 
       <div className="lookup-stats">
@@ -736,7 +884,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                       <div className="comp-name">{r.competition}</div>
                       <div className="comp-meta">
                         <span className="cat-badge">{r.category}</span>
-                        {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                        {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark}{unit}
                       </div>
                     </div>
                     <div className="comp-score">
@@ -770,7 +918,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                     <div className="comp-meta">
                       <span className="cat-badge">{r.category}</span>
                       {r.race !== 'F' && <span className="qual-badge" title="Qualification round">Q</span>}
-                      {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark} m
+                      {r.date} · <span className={placeClass(r.place)}>{r.place}</span> · {r.mark}{unit}
                     </div>
                   </div>
                   <div className="comp-score">
@@ -790,15 +938,24 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             )}
           </div>
 
-          <SimulateResult
-            gender={gender}
-            baseScores={simBaseScores}
-            currentScore={simCurrentScore}
-            currentPlace={ranked.row.place}
-            peerScores={peerScores}
-            road={simRoad}
-            rankingType={rankingType}
-          />
+          {/* Simulation needs a mark→points table, and only high jump has one so far.
+              Say so rather than scoring another event off the wrong table. */}
+          {hasScoringTable(scoringTable, group) ? (
+            <SimulateResult
+              gender={gender}
+              baseScores={simBaseScores}
+              currentScore={simCurrentScore}
+              currentPlace={ranked.row.place}
+              peerScores={peerScores}
+              road={simRoad}
+              rankingType={rankingType}
+            />
+          ) : (
+            <p className="comps-hint muted" data-testid="no-scoring-table">
+              Result simulation isn't available for {group.mainEvent} yet — its scoring table
+              hasn't been loaded.
+            </p>
+          )}
         </>
       ) : (
         roadEntry?.qualificationDetails && (
@@ -810,7 +967,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
                   <div className="comp-meta">
                     {roadEntry.qualificationDetails.venue}
                     {roadEntry.qualificationDetails.date && <> · {roadEntry.qualificationDetails.date}</>}
-                    {roadEntry.qualificationDetails.result && <> · {roadEntry.qualificationDetails.result} m</>}
+                    {roadEntry.qualificationDetails.result && <> · {roadEntry.qualificationDetails.result}{unit}</>}
                   </div>
                 </div>
               </li>
@@ -839,11 +996,15 @@ function FavoriteStar({
   slug,
   name,
   gender,
+  group,
   onNotice,
 }: {
   slug: string;
   name: string;
   gender: Gender;
+  /** The group the athlete was found in — the discipline a new favorite starts
+   *  out followed in. The star itself stays per person, not per discipline. */
+  group: EventGroup;
   onNotice: (msg: string) => void;
 }) {
   const { user } = useAuth();
@@ -859,7 +1020,12 @@ function FavoriteStar({
         event.stopPropagation();
         if (!user) return onNotice('Sign in to save favorites.');
         onNotice('');
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch((e) =>
+        void toggle({
+          athlete_slug: slug,
+          athlete_name: name,
+          gender,
+          event_groups: [group.slug],
+        }).catch((e) =>
           onNotice(favoriteError(e)),
         );
       }}

@@ -1,0 +1,325 @@
+{
+  "group": {
+    "slug": "800m",
+    "gender": "men",
+    "label": "Men's 800m"
+  },
+  "athlete": {
+    "name": "Max BURGIN",
+    "urlSlug": "great-britain-ni/max-burgin-14755557",
+    "athleteId": 14755557
+  },
+  "rankDate": "21 JUL 2026",
+  "rankingScore": 1371,
+  "calculation": {
+    "birthDate": "20 MAY 2002",
+    "averagePerformanceScore": 1371,
+    "disciplineList": [
+      "800 Metres"
+    ],
+    "results": [
+      {
+        "date": "20 SEP 2025",
+        "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+        "discipline": "800 Metres",
+        "category": "OW",
+        "race": "F",
+        "place": "6.",
+        "mark": "1:42.29",
+        "resultScore": 1258,
+        "placingScore": 160,
+        "performanceScore": 1418
+      },
+      {
+        "date": "28 AUG 2025",
+        "competition": "Weltklasse Zürich, Letzigrund, Zürich",
+        "discipline": "800 Metres",
+        "category": "DF",
+        "race": "F",
+        "place": "2.",
+        "mark": "1:42.42",
+        "resultScore": 1253,
+        "placingScore": 150,
+        "performanceScore": 1403
+      },
+      {
+        "date": "31 MAY 2026",
+        "competition": "Meeting International Mohammed VI d'Athletisme de Rabat, Complexe Sportif Prince Moulay Abdellah, Rabat",
+        "discipline": "800 Metres",
+        "category": "GW",
+        "race": "F",
+        "place": "1.",
+        "mark": "1:42.98",
+        "resultScore": 1236,
+        "placingScore": 140,
+        "performanceScore": 1376
+      },
+      {
+        "date": "18 JUL 2026",
+        "competition": "Novuna London Athletics Meet, Olympic Stadium, London",
+        "discipline": "800 Metres",
+        "category": "GW",
+        "race": "F",
+        "place": "3.",
+        "mark": "1:43.30",
+        "resultScore": 1226,
+        "placingScore": 110,
+        "performanceScore": 1336
+      },
+      {
+        "date": "18 SEP 2025",
+        "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+        "discipline": "800 Metres",
+        "category": "OW",
+        "race": "SF",
+        "place": "3.",
+        "mark": "1:43.37",
+        "resultScore": 1224,
+        "placingScore": 100,
+        "performanceScore": 1324
+      }
+    ]
+  },
+  "results": [
+    {
+      "date": "31 MAY 2026",
+      "competition": "Meeting International Mohammed VI d'Athletisme de Rabat, Complexe Sportif Prince Moulay Abdellah, Rabat - Diamond Discipline",
+      "competitionId": "7214018",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "1.",
+      "mark": "1:42.98",
+      "notLegal": false,
+      "resultScore": 1236
+    },
+    {
+      "date": "18 JUL 2026",
+      "competition": "Novuna London Athletics Meet, Olympic Stadium, London - Diamond Discipline",
+      "competitionId": "7214025",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "3.",
+      "mark": "1:43.30",
+      "notLegal": false,
+      "resultScore": 1226
+    },
+    {
+      "date": "25 MAY 2025",
+      "competition": "Meeting International Mohammed VI d'Athlétisme de Rabat, Stade Olympique, Rabat - Diamond Discipline",
+      "competitionId": "7199683",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "2.",
+      "mark": "1:43.34",
+      "notLegal": false,
+      "resultScore": 1225
+    },
+    {
+      "date": "20 JUN 2025",
+      "competition": "Meeting de Paris, Stade Charléty, Paris - Diamond Discipline",
+      "competitionId": "7203940",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "4.",
+      "mark": "1:43.61",
+      "notLegal": false,
+      "resultScore": 1216
+    },
+    {
+      "date": "11 JUL 2025",
+      "competition": "Meeting International d’Athlétisme Herculis EBS, Stade Louis II, Monaco - Diamond Discipline",
+      "competitionId": "7203942",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "11.",
+      "mark": "1:47.71",
+      "notLegal": false,
+      "resultScore": 1092
+    },
+    {
+      "date": "19 JUL 2025",
+      "competition": "London Athletics Meet, Olympic Stadium, London - Diamond Discipline",
+      "competitionId": "7203943",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "3.",
+      "mark": "1:42.36",
+      "notLegal": false,
+      "resultScore": 1255
+    },
+    {
+      "date": "02 AUG 2025",
+      "competition": "UK Championships, Alexander Stadium, Birmingham",
+      "competitionId": "7229689",
+      "discipline": "800 Metres",
+      "category": "B",
+      "race": "H3",
+      "place": "1.",
+      "mark": "1:46.02",
+      "notLegal": false,
+      "resultScore": 1143
+    },
+    {
+      "date": "03 AUG 2025",
+      "competition": "UK Championships, Alexander Stadium, Birmingham",
+      "competitionId": "7229689",
+      "discipline": "800 Metres",
+      "category": "B",
+      "race": "F",
+      "place": "1.",
+      "mark": "1:43.92",
+      "notLegal": false,
+      "resultScore": 1207
+    },
+    {
+      "date": "20 AUG 2025",
+      "competition": "Athletissima Lausanne, Stade Olympique de la Pontaise, Lausanne - Diamond Discipline",
+      "competitionId": "7203944",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "4.",
+      "mark": "1:43.44",
+      "notLegal": false,
+      "resultScore": 1221
+    },
+    {
+      "date": "28 AUG 2025",
+      "competition": "Weltklasse Zürich, Letzigrund, Zürich - Diamond Discipline",
+      "competitionId": "7199686",
+      "discipline": "800 Metres",
+      "category": "DF",
+      "race": "F",
+      "place": "2.",
+      "mark": "1:42.42",
+      "notLegal": false,
+      "resultScore": 1253
+    },
+    {
+      "date": "16 SEP 2025",
+      "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+      "competitionId": "7190593",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "H6",
+      "place": "1.",
+      "mark": "1:44.73",
+      "notLegal": false,
+      "resultScore": 1182
+    },
+    {
+      "date": "18 SEP 2025",
+      "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+      "competitionId": "7190593",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "SF2",
+      "place": "2.",
+      "mark": "1:43.37",
+      "notLegal": false,
+      "resultScore": 1224
+    },
+    {
+      "date": "20 SEP 2025",
+      "competition": "World Athletics Championships, Tokyo 2025, National Stadium, Tokyo",
+      "competitionId": "7190593",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "F",
+      "place": "6.",
+      "mark": "1:42.29",
+      "notLegal": false,
+      "resultScore": 1258
+    },
+    {
+      "date": "29 JUN 2024",
+      "competition": "UK Championships, Manchester Regional Arena, Manchester",
+      "competitionId": "7213161",
+      "discipline": "800 Metres",
+      "category": "B",
+      "race": "H2",
+      "place": "1.",
+      "mark": "1:45.52",
+      "notLegal": false,
+      "resultScore": 1158
+    },
+    {
+      "date": "30 JUN 2024",
+      "competition": "UK Championships, Manchester Regional Arena, Manchester",
+      "competitionId": "7213161",
+      "discipline": "800 Metres",
+      "category": "B",
+      "race": "F",
+      "place": "2.",
+      "mark": "1:46.01",
+      "notLegal": false,
+      "resultScore": 1143
+    },
+    {
+      "date": "10 JUL 2024",
+      "competition": "BMC Gold Standard Races, Woodside Stadium, Watford",
+      "competitionId": "7212021",
+      "discipline": "800 Metres",
+      "category": "F",
+      "race": "F1",
+      "place": "1.",
+      "mark": "1:45.35",
+      "notLegal": false,
+      "resultScore": 1163
+    },
+    {
+      "date": "07 AUG 2024",
+      "competition": "The XXXIII Olympic Games, Stade de France, Paris",
+      "competitionId": "7153115",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "H6",
+      "place": "3.",
+      "mark": "1:45.36",
+      "notLegal": false,
+      "resultScore": 1162
+    },
+    {
+      "date": "09 AUG 2024",
+      "competition": "The XXXIII Olympic Games, Stade de France, Paris",
+      "competitionId": "7153115",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "SF3",
+      "place": "3.",
+      "mark": "1:43.50",
+      "notLegal": false,
+      "resultScore": 1220
+    },
+    {
+      "date": "10 AUG 2024",
+      "competition": "The XXXIII Olympic Games, Stade de France, Paris",
+      "competitionId": "7153115",
+      "discipline": "800 Metres",
+      "category": "OW",
+      "race": "F",
+      "place": "8.",
+      "mark": "1:43.84",
+      "notLegal": false,
+      "resultScore": 1209
+    },
+    {
+      "date": "25 AUG 2024",
+      "competition": "Silesia Kamila Skolimowska Memorial, Stadion Śląski, Chorzów - Diamond Discipline",
+      "competitionId": "7202834",
+      "discipline": "800 Metres",
+      "category": "GW",
+      "race": "F",
+      "place": "7.",
+      "mark": "1:43.73",
+      "notLegal": false,
+      "resultScore": 1212
+    }
+  ]
+}

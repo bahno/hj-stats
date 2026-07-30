@@ -5,14 +5,10 @@
  */
 import { trpc, type Gender } from './rankingApi';
 import type { CountryScore } from './types';
+import type { EventGroup } from './events';
 import { MAX_PER_COUNTRY } from '../engine/simulate';
 
 const BIRMINGHAM_COMPETITION_ID = 7192415;
-
-const HIGH_JUMP_EVENT_ID: Record<Gender, number> = {
-  men: 10229615,
-  women: 10229526,
-};
 
 export interface QualificationEntry {
   qualifiedBy: string; // e.g. "Qualified by Entry Standard", "In World Rankings quota"
@@ -66,11 +62,72 @@ interface QualifyingSystemResponse {
   qualifications: QualificationEntry[];
 }
 
-/** Fetch the Road to Birmingham High Jump qualification tracker for a gender. */
-export async function fetchRoadToBirmingham(gender: Gender): Promise<RoadToBirmingham> {
+/**
+ * The competition's own event list. Calling the qualifying-system endpoint with no
+ * `eventId` returns every event it stages, with ids — so event ids never need
+ * hardcoding per discipline. Verified live 2026-07-27.
+ */
+export interface CompetitionEvent {
+  id: number;
+  genderCode: 'M' | 'W';
+  name: string; // "Men's High Jump"
+}
+
+export async function fetchCompetitionEvents(competitionId: number): Promise<CompetitionEvent[]> {
+  const data = await trpc<{ events?: CompetitionEvent[] }>(
+    'worldAthletics.getCompetitionQualifyingSystem',
+    { competitionId },
+  );
+  return data.events ?? [];
+}
+
+/**
+ * The event id for a gender and main event, or null when the competition doesn't stage
+ * it. Matched on the exact suffix after the gender prefix so that "100 Metres" cannot
+ * match "100 Metres Hurdles".
+ */
+export function eventIdFor(
+  events: CompetitionEvent[],
+  gender: Gender,
+  mainEventName: string,
+): number | null {
+  const code = gender === 'men' ? 'M' : 'W';
+  const suffix = mainEventName.toLowerCase();
+  const match = events.find((e) => {
+    if (e.genderCode !== code) return false;
+    const name = e.name.toLowerCase();
+    return name.endsWith(` ${suffix}`) || name === suffix;
+  });
+  return match?.id ?? null;
+}
+
+/**
+ * The competition's event id for an event group, or null when it doesn't stage it.
+ *
+ * The competition event list spells events as disciplines ("Men's 100 Metres") while an
+ * event group's mainEvent is Table 2.12's short form ("100m"), so match through the
+ * group's harvested long discipline names. Longest first, so that a group containing
+ * both "100 Metres" and "100 Metres Hurdles" cannot match the shorter one by accident.
+ */
+export function eventIdForGroup(events: CompetitionEvent[], group: EventGroup): number | null {
+  const candidates = [...group.disciplines].sort((a, b) => b.length - a.length);
+  for (const discipline of candidates) {
+    const id = eventIdFor(events, group.gender, discipline);
+    if (id !== null) return id;
+  }
+  return null;
+}
+
+/** Fetch the Road to Birmingham qualification tracker for an event group. */
+export async function fetchRoadToBirmingham(group: EventGroup): Promise<RoadToBirmingham> {
+  const events = await fetchCompetitionEvents(BIRMINGHAM_COMPETITION_ID);
+  const eventId = eventIdForGroup(events, group);
+  if (eventId === null) {
+    throw new Error(`Birmingham does not stage ${group.label}`);
+  }
   const data = await trpc<QualifyingSystemResponse>('worldAthletics.getCompetitionQualifyingSystem', {
     competitionId: BIRMINGHAM_COMPETITION_ID,
-    eventId: HIGH_JUMP_EVENT_ID[gender],
+    eventId,
   });
   return {
     entryNumber: data.entryNumber,

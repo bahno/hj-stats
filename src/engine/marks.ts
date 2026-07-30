@@ -1,4 +1,16 @@
 import type { Gender, ScoringTable } from '../data/types';
+import type { EventGroup } from '../data/events';
+
+/**
+ * Whether the loaded scoring table can turn a mark into performance points for this
+ * event group. It covers high jump only today — pipeline/parse_scoring.py extracts
+ * that one column — so anything that simulates a mark has to ask first rather than
+ * silently scoring a 100m off the high jump table. The table names its event with an
+ * underscore ("high_jump") where the ranking API uses a hyphen.
+ */
+export function hasScoringTable(table: ScoringTable, group: EventGroup): boolean {
+  return table.event.replace(/_/g, '-') === group.slug;
+}
 
 export function availableMarks(table: ScoringTable, gender: Gender): number[] {
   return Object.keys(table.points_by_mark[gender])

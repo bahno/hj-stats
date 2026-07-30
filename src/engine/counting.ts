@@ -1,6 +1,11 @@
+import type { EventGroup } from '../data/events';
 import type { CategoryCode } from '../data/types';
 import { placingPoints } from './data';
+import { parseWaDate } from './dates';
+import { placingPointsFor } from './placing';
+import { advancedToFinal, classifyRounds } from './rounds';
 import { placingScore } from './score';
+import { isInWindow, type RankingWindow } from './window';
 
 /**
  * Reconstructing the ranking's counting set from an athlete's *full* result list — used to
@@ -10,9 +15,10 @@ import { placingScore } from './score';
  * re-derive the whole pool from the profile results (see data/athleteResultsApi.ts) and
  * pick up where the counting set leaves off.
  *
- * Two rules reproduce the official counting set exactly (verified against live men's HJ
- * data, 2026-07): only final rounds count (qualification rounds carry a heat placing that
- * would otherwise inflate their score), and only results inside the ranking window count.
+ * Two rules reproduce the official counting set (verified against live men's HJ data,
+ * 2026-07): a result scores its mark points plus whatever the placing tables award for the
+ * round it was (engine/placing.ts, engine/rounds.ts), and only results inside the ranking
+ * window count (engine/window.ts).
  */
 
 /** The minimum a result needs to be scored the same way the ranking does. */
@@ -40,34 +46,23 @@ export interface ScoredResult extends RankableResult {
   t: number;
 }
 
-const MONTHS: Record<string, number> = {
-  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
-};
+export { parseWaDate, oneYearEarlier } from './dates';
 
 /**
- * Parse a WorldAthletics/EA date to epoch ms (UTC). Handles the results feed's
- * "16 SEP 2025" format and, defensively, an ISO "2025-09-16" (the ranking endpoints'
- * rankDate format isn't guaranteed to match). NaN if unparseable.
+ * Counting-set order: best combined score first.
+ *
+ * On a tied score the higher mark score wins. Measured across 330 captured ranking
+ * calculations sampled down to ranking place 1101: of the 15 ties at a counting-set
+ * boundary, the 7 whose mark scores differ went to the higher mark score every time, with
+ * no counterexample. Pichardo's Rome 2024 qualification (mark 1216) over his Tokyo 2025
+ * one (mark 1174) is one of them, and it is why date alone was never the rule.
+ *
+ * When the mark scores tie as well, World Athletics' own choice is not consistent (5 of
+ * those 8 took the newer result, 2 the older, 1 counted both), so newest-first stays as a
+ * stable last resort rather than a rule anyone should trust.
  */
-export function parseWaDate(s: string): number {
-  const iso = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
-  const parts = s.trim().split(/\s+/);
-  if (parts.length !== 3) return NaN;
-  const [d, mon, y] = parts;
-  const month = MONTHS[mon.toUpperCase()];
-  if (month === undefined) return NaN;
-  const day = Number(d);
-  const year = Number(y);
-  if (!Number.isFinite(day) || !Number.isFinite(year)) return NaN;
-  return Date.UTC(year, month, day);
-}
-
-/** The same instant one calendar year earlier — the start of a rolling 12-month window. */
-export function oneYearEarlier(ms: number): number {
-  const d = new Date(ms);
-  return Date.UTC(d.getUTCFullYear() - 1, d.getUTCMonth(), d.getUTCDate());
+export function byCountingOrder(a: ScoredResult, b: ScoredResult): number {
+  return b.score - a.score || b.resultScore - a.resultScore || b.t - a.t;
 }
 
 /** First integer in a place string ("=2." -> 2, "4." -> 4). 0 when there's no finish position. */
@@ -102,45 +97,44 @@ export function countingKey(r: ScorableResult & { date: string }): string {
 }
 
 /**
- * Whether a result is a legal High Jump final. The `race` code is `F` for a single final,
- * but meets split into flights/sections label them `F1`, `F2`, … (common at NCAA/collegiate
- * meets) — all are finals. Qualification rounds are `Q`/`Q1`/`Q2` (see `candidateScore`).
+ * Whether a result belongs to this event group at all. An athlete's profile carries
+ * every discipline they have ever contested, and an event group spans several of them
+ * (the 1500m ranking counts indoor 1500m results too), so membership is a set lookup
+ * against the group's harvested discipline names — never a single string comparison.
+ *
+ * `notLegal` is deliberately NOT a filter. It flags a mark as ineligible for records and
+ * lists (wind-aided, almost always), not ineligible for the ranking: the oracle fixtures
+ * show World Athletics counting three such results outright — Jacobs' wind-aided 9.67 and
+ * 9.84 at Eisenstadt (01 JUL 2026) and Španović's 14.43 at the Serbian Championships
+ * (02 AUG 2025) — and not one of the other 22 notLegal rows across the 36 fixtures even
+ * reaches its athlete's worst counting score, so there is no case pointing the other way.
  */
-export function isFinalResult(r: RankableResult): boolean {
-  return r.discipline === 'High Jump' && r.race.startsWith('F') && !r.notLegal;
+export function isCountableResult(r: RankableResult, group: EventGroup): boolean {
+  return group.disciplines.includes(r.discipline);
 }
 
 /**
- * WorldAthletics placing points for a qualification round when the athlete *advanced* to the
- * final ("Q or q to Final"), by competition category — the ≥10-finalist column of WA's
- * qualification placing table. Championship High Jump finals (OW, and the indoor GW tier) run
- * ≥10 competitors, so this column is the right one; a non-advancing round (placed by its own
- * qualification position) or a category not listed here isn't scored (see `candidateScore`).
- * Verified against live counting sets: Hrubá's Tokyo Q2 (1140+70=1210) and Doroshchuk's Tokyo
- * Q1 (1135+70=1205) both reproduce WA exactly.
+ * Score every result that belongs to the group: mark points (given by World Athletics)
+ * plus placing points (derived from the tables). Rounds are classified across the whole
+ * set at once, because whether a round counts as "the round before the Final" depends on
+ * what else the athlete contested at that competition — see engine/rounds.ts.
  */
-const QUAL_TO_FINAL_PLACING: Record<string, number> = { OW: 70, DF: 46, GW: 35, GL: 28 };
-
-/**
- * A result's counting score as a substitute candidate, or `null` if it isn't one:
- *  - a legal High Jump final scores `resultScore + placingScore(category, place)`;
- *  - a qualification round scores `resultScore + qualToFinal[category]`, but only when it's a
- *    championship-tier round the athlete advanced from (a final at the same competition is in
- *    `finalCompIds`) — otherwise its placing isn't reliably derivable and it's skipped.
- */
-export function candidateScore(r: RankableResult, finalCompIds: Set<string>): number | null {
-  if (r.discipline !== 'High Jump' || r.notLegal) return null;
-  if (r.race.startsWith('F')) return combinedScore(r); // final (F, or a flight F1/F2/…)
-  if (!r.race.startsWith('Q')) return null; // not a final or qualification round
-  const qualPlacing = QUAL_TO_FINAL_PLACING[r.category];
-  if (qualPlacing === undefined || r.competitionId === undefined || !finalCompIds.has(r.competitionId)) {
-    return null;
-  }
-  return r.resultScore + qualPlacing;
+export function scoreResults(results: RankableResult[], group: EventGroup): ScoredResult[] {
+  const mine = results.filter((r) => isCountableResult(r, group));
+  const rounds = classifyRounds(mine);
+  return mine.map((r) => ({
+    ...r,
+    score: r.resultScore + placingPointsFor({
+      group,
+      discipline: r.discipline,
+      category: r.category as CategoryCode,
+      round: rounds.get(r) ?? 'other',
+      place: parsePlace(r.place),
+      advanced: advancedToFinal(r, mine),
+    }),
+    t: parseWaDate(r.date),
+  }));
 }
-
-/** The number of results the High Jump ranking averages. */
-export const COUNTING_RESULTS = 5;
 
 /** One of the official counting results: its identity and its exact (WA-given) score. */
 export interface CountingEntry {
@@ -166,31 +160,53 @@ export function allCountingInWindow(
 }
 
 /**
- * Candidate "next best" results, best-to-worst: scorable results inside the window (finals,
- * plus advancing championship qualification rounds — see `candidateScore`) that aren't already
- * counting and don't out-score the counting set. The `cap` (the lowest counting score) keeps
- * this safe without perfectly reproducing WA's window: a genuine 6th is always ≤ the 5th, so
- * anything above the cap is either already counting or a boundary result WA hasn't counted yet.
+ * Collapse rows that describe the same round of the same competition, keeping the best.
+ *
+ * Since wind-aided marks stopped being filtered out (see isCountableResult), some feeds are
+ * seen listing one round twice: its legal best and its wind-aided best as separate rows.
+ * Ivana ŠPANOVIĆ's fixture has three such pairs, and the shadow row is dangerous because
+ * `countingKey` includes `resultScore` — the shadow scores differently from the row World
+ * Athletics counted, so it is not recognised as already counting and offers itself as a
+ * substitute from a competition that is already in the counting set.
+ *
+ * The discriminator is the round itself: competition + discipline + date + race code. Across
+ * the 36 oracle fixtures (1716 rows) that key collides exactly three times, and all three are
+ * the known duplicate pairs — while 109 same-competition, same-discipline, same-day pairs of
+ * genuinely different rounds (a heat and its final, a qualification and its final) keep
+ * distinct keys and survive. Keeping the highest-scoring row of a pair keeps the one World
+ * Athletics counts (ŠPANOVIĆ's wind-aided 1146 over the shadow's 1131), which is also what
+ * lets `countingKey` recognise and exclude it.
+ */
+function bestPerRound(results: ScoredResult[]): ScoredResult[] {
+  const best = new Map<string, ScoredResult>();
+  for (const r of results) {
+    const key = `${r.competitionId}|${r.discipline}|${r.date}|${r.race}`;
+    const seen = best.get(key);
+    if (!seen || r.score > seen.score) best.set(key, r);
+  }
+  return [...best.values()];
+}
+
+/**
+ * Candidate "next best" results, best-to-worst: scorable results inside the window that
+ * aren't already counting and don't out-score the counting set. The `cap` (the lowest
+ * counting score) keeps this safe without perfectly reproducing WA's window: a genuine
+ * 6th is always ≤ the 5th, so anything above the cap is either already counting or a
+ * boundary result WA hasn't counted yet.
  */
 export function substitutePool(
   results: RankableResult[],
-  startMs: number,
-  endMs: number,
+  group: EventGroup,
+  window: RankingWindow,
   countingKeys: Set<string>,
   cap: number,
 ): ScoredResult[] {
-  const finalCompIds = new Set(
-    results.filter(isFinalResult).map((r) => r.competitionId).filter((id): id is string => id !== undefined),
-  );
-  return results
-    .map((r) => {
-      const score = candidateScore(r, finalCompIds);
-      return score === null ? null : { ...r, score, t: parseWaDate(r.date) };
-    })
-    .filter((r): r is ScoredResult => r !== null)
-    .filter((r) => Number.isFinite(r.t) && r.t >= startMs && r.t <= endMs)
+  // Duplicated rounds must collapse *before* the counting exclusion: drop the counted row
+  // first and a shadow row would be left behind as the round's only survivor.
+  return bestPerRound(scoreResults(results, group))
+    .filter((r) => isInWindow(r, window))
     .filter((r) => !countingKeys.has(countingKey(r)) && r.score <= cap)
-    .sort((a, b) => b.score - a.score || b.t - a.t);
+    .sort(byCountingOrder);
 }
 
 export interface Recount {
