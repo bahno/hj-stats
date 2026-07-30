@@ -41,8 +41,16 @@ the engine is generalised to the full table set.
 ```bash
 python parse_scoring.py            # writes scoring_tables.json (and scoring_table.json)
 python parse_scoring.py path.pdf   # same, from an already-downloaded copy of the PDF
+python split_scoring.py            # writes src/data/scoring/<slug>-<gender>.json x36
 python verify.py                   # checks them against anchors and the WA oracle
 ```
+
+**`parse_scoring.py` must always be followed by `split_scoring.py`.** The app does not
+read `scoring_tables.json` — at 1.1 MB it would land on every first paint for a feature
+only reachable after an athlete lookup, so `src/engine/scoring.ts` loads the per-group
+chunks on demand instead. Re-parsing without re-splitting leaves the app scoring marks off
+the old table. `verify.py` catches it: it checks every chunk's marks against the combined
+file and fails on a mismatch, a missing chunk or a stale one.
 
 Parses the official Scoring Tables PDF into `scoring_tables.json`: the mark → points
 table for all 36 Track & Field event groups, keyed by the same slugs as

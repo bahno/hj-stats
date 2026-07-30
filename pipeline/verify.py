@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "src" / "data"
 ORACLE = ROOT / "src" / "engine" / "__fixtures__" / "oracle"
+SPLIT_DIR = DATA / "scoring"
 
 # One (mark -> score) pair per event group, read by eye from the raw page text of the
 # official 2025 Scoring Tables PDF (World Athletics Scoring Tables of Athletics, 2025
@@ -176,6 +177,33 @@ def score_for(table: dict, slug: str, mark: str) -> int:
     return best
 
 
+def verify_split(events: dict) -> list[str]:
+    """The per-group chunks must reproduce the combined file exactly.
+
+    They are what the app actually loads, so a stale chunk would score marks off an old
+    table while every other check here still passed.
+    """
+    if not SPLIT_DIR.is_dir():
+        return [f"split chunks not found at {SPLIT_DIR} - run pipeline/split_scoring.py"]
+
+    expected = {f"{slug}-{gender}" for gender, groups in events.items() for slug in groups}
+    found = {p.stem for p in SPLIT_DIR.glob("*.json")}
+    errors = [f"split chunk missing: {s}" for s in sorted(expected - found)]
+    errors += [f"stale split chunk: {s}" for s in sorted(found - expected)]
+
+    for gender, groups in events.items():
+        for slug, table in groups.items():
+            path = SPLIT_DIR / f"{slug}-{gender}.json"
+            if not path.is_file():
+                continue
+            chunk = json.loads(path.read_text(encoding="utf-8"))
+            if chunk.get("marks") != table["marks"]:
+                errors.append(
+                    f"split chunk {slug}-{gender} disagrees with scoring_tables.json"
+                )
+    return errors
+
+
 def verify_oracle(events: dict) -> tuple[list[str], str]:
     """Check every captured World Athletics counting result against the tables."""
     if not ORACLE.is_dir():
@@ -230,6 +258,7 @@ def verify_oracle(events: dict) -> tuple[list[str], str]:
 def main() -> None:
     events = load_tables()
     errors = verify_anchors(events)
+    errors += verify_split(events)
     oracle_errors, summary = verify_oracle(events)
     errors += oracle_errors
 
