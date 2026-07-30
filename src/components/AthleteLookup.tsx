@@ -48,8 +48,10 @@ import { RankingTypeToggle } from './inputs/RankingTypeToggle';
 import { SimulateResult, type RoadSimData } from './SimulateResult';
 import { placeClass } from './placement';
 import { useFavorites } from '../hooks/FavoritesContext';
+import type { Favorite } from '../data/userData';
 import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../hooks/usePreferences';
+import { readParams, writeParams } from '../urlState';
 
 function normalize(s: string): string {
   return s
@@ -164,6 +166,45 @@ function hitFromRow(row: RankingRow): Hit {
   return { athlete: row.athlete, athleteUrlSlug: row.athleteUrlSlug, nationality: row.nationality, row };
 }
 
+/**
+ * The lookup's slice of the query string, read once at mount. An event slug is
+ * gender-neutral, so it resolves against whatever gender the link names (men by
+ * default); a slug that names no group is dropped rather than treated as an error,
+ * since a link can outlive a rename.
+ */
+function lookupFromUrl() {
+  const params = readParams();
+  const genderParam = params.get('gender');
+  const gender: Gender | null =
+    genderParam === 'men' || genderParam === 'women' ? genderParam : null;
+  const slug = params.get('event');
+  const typeParam = params.get('type');
+  return {
+    gender,
+    group: slug ? (findEventGroup(slug, gender ?? 'men') ?? null) : null,
+    rankingType:
+      typeParam === 'world' || typeParam === 'european' || typeParam === 'road'
+        ? (typeParam as RankingType)
+        : null,
+    query: params.get('q') ?? '',
+  };
+}
+
+/**
+ * Which event group a favorite chip should search in. A favorite carries the
+ * disciplines it is followed in, so the chip goes to one of those rather than to
+ * whatever the picker happens to show — searching a sprinter in the shot put
+ * only ever produces "no athlete matching". The current selection wins when the
+ * athlete is followed in it, so clicking a chip while already in one of their
+ * events doesn't jerk the picker somewhere else. A favorite with no groups (a
+ * row written before the column existed) keeps the old behaviour.
+ */
+function groupForFavorite(fav: Favorite, selected: EventGroup): EventGroup {
+  const carried = counterpartGroup(selected, fav.gender);
+  if (fav.event_groups.length === 0 || fav.event_groups.includes(carried.slug)) return carried;
+  return findEventGroup(fav.event_groups[0], fav.gender) ?? carried;
+}
+
 function hitFromQualification(entry: QualificationEntry): Hit {
   return {
     athlete: entry.competitor.name,
@@ -175,30 +216,54 @@ function hitFromQualification(entry: QualificationEntry): Hit {
 }
 
 export function AthleteLookup() {
-  const [gender, setGender] = useState<Gender>('men');
-  const [group, setGroup] = useState<EventGroup>(() => findEventGroup(DEFAULT_EVENT_SLUG, 'men')!);
-  const [rankingType, setRankingType] = useState<RankingType>('road')
-  const [query, setQuery] = useState('');
+  // Read once: later writes to the URL are this component's own, and re-reading
+  // them would fight the state they came from.
+  const fromUrl = useRef(lookupFromUrl()).current;
+  const [gender, setGender] = useState<Gender>(fromUrl.gender ?? fromUrl.group?.gender ?? 'men');
+  const [group, setGroup] = useState<EventGroup>(
+    () => fromUrl.group ?? findEventGroup(DEFAULT_EVENT_SLUG, fromUrl.gender ?? 'men')!,
+  );
+  const [rankingType, setRankingType] = useState<RankingType>(fromUrl.rankingType ?? 'road')
+  const [query, setQuery] = useState(fromUrl.query);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [candidates, setCandidates] = useState<Hit[]>([]);
   const [found, setFound] = useState<Found | null>(null);
   const { user } = useAuth();
   const { favorites } = useFavorites();
-  // One slot for anything the star button needs to say: not signed in, at the
-  // favorites cap, or a save that failed. Silently doing nothing is worse.
-  const [favNotice, setFavNotice] = useState('');
-  const { defaultGender } = usePreferences();
+  // One slot for anything above the form that needs saying: the star button's
+  // not-signed-in / at-the-cap / save-failed cases, and a default-event save
+  // that failed. Silently doing nothing is worse.
+  const [notice, setNotice] = useState('');
+  const { defaultGender, defaultEvent, setDefaultEvent } = usePreferences();
   // Every lookup takes a ticket; only the newest one is allowed to write state.
   // Without this, two quick searches race and the slower response wins, showing
   // one athlete's data under another's name.
   const requestId = useRef(0);
+  // Saved preferences arrive after the first render. The event group is stored as
+  // a gender-neutral slug, so it only resolves once the effective gender is known;
+  // a slug that no longer names a group (renamed upstream, or hand-edited) falls
+  // back to carrying the current selection over rather than erroring.
   useEffect(() => {
-    if (!defaultGender) return;
-    setGender(defaultGender);
-    setGroup((g) => counterpartGroup(g, defaultGender));
+    // A link is more specific than a saved default. If the URL said anything at all
+    // about the lookup, it wins outright — applying half a preference on top of half
+    // a link would leave the picker and the athlete on screen describing different
+    // rankings.
+    if (fromUrl.gender || fromUrl.group || fromUrl.query) return;
+    if (!defaultGender && !defaultEvent) return;
+    const g = defaultGender ?? gender;
+    setGender(g);
+    setGroup((prev) => (defaultEvent && findEventGroup(defaultEvent, g)) || counterpartGroup(prev, g));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultGender]);
+  }, [defaultGender, defaultEvent]);
+
+  // A link that names an athlete resolves it on load, so the URL alone reproduces
+  // the screen it was copied from.
+  useEffect(() => {
+    if (!fromUrl.query) return;
+    void runLookup(fromUrl.query, group);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ranking lists are cached per event group (gender included, since a group is
   // one gender's) so repeated searches don't refetch. The TTL keeps a long-lived
@@ -351,6 +416,7 @@ export function AthleteLookup() {
   async function search(e: FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
+    writeParams({ gender, event: group.slug, q: query });
     await runLookup(query, group);
   }
 
@@ -369,18 +435,37 @@ export function AthleteLookup() {
   // and results — otherwise a favorite's name lingers under the wrong gender.
   // The event selection carries over to the other gender's equivalent group.
   function changeGender(g: Gender) {
+    const next = counterpartGroup(group, g);
     setGender(g);
-    setGroup((prev) => counterpartGroup(prev, g));
+    setGroup(next);
     resetLookup();
+    // Save the counterpart's slug, not the one being left: the hurdles differ by
+    // gender, so '110mh' would resolve to nothing under 'women' on the next load.
+    saveDefaultEvent(next);
+    // resetLookup clears the athlete, so the URL must drop it too rather than keep
+    // pointing at someone who is no longer on screen.
+    writeParams({ gender: g, event: next.slug, q: null });
   }
 
   function changeGroup(next: EventGroup) {
     setGroup(next);
     resetLookup();
+    saveDefaultEvent(next);
+    writeParams({ gender: next.gender, event: next.slug, q: null });
+  }
+
+  // Mirrors how the calculator's gender toggle writes default_gender: the pick
+  // takes effect either way, but a failure to remember it is said out loud. A
+  // signed-out user has nowhere to write, and setDefaultEvent no-ops.
+  function saveDefaultEvent(g: EventGroup) {
+    void setDefaultEvent(g.slug).catch(() =>
+      setNotice("Couldn't save this as your default event."),
+    );
   }
 
   function changeRankingType(r: RankingType) {
     setRankingType(r);
+    writeParams({ type: r });
     setStatus('idle');
     setCandidates([]);
     setMessage('');
@@ -396,14 +481,11 @@ export function AthleteLookup() {
               type="button"
               className={`fav-chip ${f.gender}`}
               onClick={() => {
-                // A favorite is stored as a person + gender, with no event group, so
-                // the chip searches the currently-selected event (mapped to the
-                // favorite's gender). Athletes contest one group in practice; if they
-                // aren't in this one, the usual "no athlete matching" message says so.
-                const grp = counterpartGroup(group, f.gender);
+                const grp = groupForFavorite(f, group);
                 setGender(f.gender);
                 setGroup(grp);
                 setQuery(f.athlete_name);
+                writeParams({ gender: f.gender, event: grp.slug, q: f.athlete_name });
                 void runLookup(f.athlete_name, grp);
               }}
             >
@@ -412,7 +494,7 @@ export function AthleteLookup() {
           ))}
         </div>
       )}
-      {favNotice && <p className="lookup-msg">{favNotice}</p>}
+      {notice && <p className="lookup-msg">{notice}</p>}
       <form className="fields" onSubmit={search}>
         <GenderToggle value={gender} onChange={changeGender} />
         <EventGroupSelect value={group} gender={gender} onChange={changeGroup} />
@@ -449,7 +531,8 @@ export function AthleteLookup() {
                     slug={c.athleteUrlSlug}
                     name={c.athlete}
                     gender={gender}
-                    onNotice={setFavNotice}
+                    group={group}
+                    onNotice={setNotice}
                   />
                 </span>
                 <span className="muted" style={{ marginLeft: 'auto' }}>
@@ -469,7 +552,7 @@ export function AthleteLookup() {
         </ul>
       )}
 
-      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setFavNotice} />}
+      {found && <Result rankingType={rankingType} changeRankingType={changeRankingType} found={found} onNotice={setNotice} />}
     </section>
   );
 }
@@ -724,6 +807,7 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             slug={athleteUrlSlug}
             name={athlete}
             gender={gender}
+            group={group}
             onNotice={onNotice}
           />
         </div>
@@ -912,11 +996,15 @@ function FavoriteStar({
   slug,
   name,
   gender,
+  group,
   onNotice,
 }: {
   slug: string;
   name: string;
   gender: Gender;
+  /** The group the athlete was found in — the discipline a new favorite starts
+   *  out followed in. The star itself stays per person, not per discipline. */
+  group: EventGroup;
   onNotice: (msg: string) => void;
 }) {
   const { user } = useAuth();
@@ -932,7 +1020,12 @@ function FavoriteStar({
         event.stopPropagation();
         if (!user) return onNotice('Sign in to save favorites.');
         onNotice('');
-        void toggle({ athlete_slug: slug, athlete_name: name, gender }).catch((e) =>
+        void toggle({
+          athlete_slug: slug,
+          athlete_name: name,
+          gender,
+          event_groups: [group.slug],
+        }).catch((e) =>
           onNotice(favoriteError(e)),
         );
       }}

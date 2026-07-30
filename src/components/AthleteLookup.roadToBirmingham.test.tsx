@@ -67,7 +67,7 @@ function roadData(qualifications: RoadToBirmingham['qualifications']): RoadToBir
 
 beforeEach(() => {
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: row.athleteUrlSlug, athlete_name: row.athlete, gender: 'men' },
+    { id: 'f1', athlete_slug: row.athleteUrlSlug, athlete_name: row.athlete, gender: 'men', event_groups: ['high-jump'] },
   ];
   vi.mocked(fetchRanking).mockReset();
   vi.mocked(fetchRankingCalculation).mockReset();

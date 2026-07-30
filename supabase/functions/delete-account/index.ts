@@ -7,9 +7,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.8';
 
 // Only the app's own origins may call this. ALLOWED_ORIGINS is a comma-separated
 // list (set it with `supabase secrets set ALLOWED_ORIGINS=...`); it falls back to
-// the GitHub Pages deployment plus the local dev server.
+// the deployed site plus the local dev server.
 const ALLOWED_ORIGINS = (
-  Deno.env.get('ALLOWED_ORIGINS') ?? 'https://bahno.github.io,http://localhost:5173'
+  Deno.env.get('ALLOWED_ORIGINS') ?? 'https://bahno.info,http://localhost:5173'
 )
   .split(',')
   .map((o) => o.trim())

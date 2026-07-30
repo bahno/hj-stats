@@ -65,8 +65,8 @@ const ROWS = [row(42, 'Gianmarco Tamberi', 'tamberi'), row(43, 'Ada Jumper', 'ad
 
 beforeEach(() => {
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men' },
-    { id: 'f2', athlete_slug: 'ada-jumper', athlete_name: 'Ada Jumper', gender: 'men' },
+    { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men', event_groups: ['high-jump'] },
+    { id: 'f2', athlete_slug: 'ada-jumper', athlete_name: 'Ada Jumper', gender: 'men', event_groups: ['high-jump'] },
   ];
   vi.mocked(fetchRanking).mockReset().mockResolvedValue({
     rankDate: '2026-07-01',

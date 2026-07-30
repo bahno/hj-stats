@@ -69,7 +69,7 @@ beforeEach(() => {
 test('shows the diadem for Klára, matching her name diacritic-insensitively', async () => {
   // The ranking (and the saved favorite) carry the accented spelling.
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: 'krejcirikova', athlete_name: 'Klára Krejčířiková', gender: 'women' },
+    { id: 'f1', athlete_slug: 'krejcirikova', athlete_name: 'Klára Krejčířiková', gender: 'women', event_groups: ['high-jump'] },
   ];
   vi.mocked(fetchRanking).mockResolvedValue({
     rankDate: '2026-07-01',
@@ -85,7 +85,7 @@ test('shows the diadem for Klára, matching her name diacritic-insensitively', a
 
 test('does not show the diadem for other athletes', async () => {
   mocks.favorites.current = [
-    { id: 'f2', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men' },
+    { id: 'f2', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men', event_groups: ['high-jump'] },
   ];
   vi.mocked(fetchRanking).mockResolvedValue({
     rankDate: '2026-07-01',

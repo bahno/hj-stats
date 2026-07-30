@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useFavorites } from '../hooks/FavoritesContext';
 import { getNotificationSettings, updateNotificationSettings } from '../data/userData';
-import type { NotifyPrefs } from '../data/types';
+import { eventGroupsFor, findEventGroup } from '../data/events';
+import type { Gender, NotifyPrefs } from '../data/types';
 
 // `label` is the full accessible name (used for each checkbox's aria-label);
 // `header` is the short visible column heading so all four columns stay equal.
@@ -13,9 +14,15 @@ const TRIGGERS: Array<{ key: keyof NotifyPrefs; label: string; header?: string }
   { key: 'qualification', label: 'Qualification', header: 'Quali' },
 ];
 
+/** A slug that no longer names a group still has to be shown, or removing it
+ *  would mean deleting something the user can't see. */
+function eventLabel(slug: string, gender: Gender): string {
+  return findEventGroup(slug, gender)?.mainEvent ?? slug;
+}
+
 export function NotificationSettings() {
   const { user } = useAuth();
-  const { favorites, updatePrefs } = useFavorites();
+  const { favorites, updatePrefs, updateEventGroups } = useFavorites();
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [message, setMessage] = useState('');
@@ -57,6 +64,12 @@ export function NotificationSettings() {
   function toggleTrigger(slug: string, gender: 'men' | 'women', prefs: NotifyPrefs, key: keyof NotifyPrefs) {
     void updatePrefs(slug, gender, { ...prefs, [key]: !prefs[key] }).catch(() =>
       setMessage('Could not save athlete preference.'),
+    );
+  }
+
+  function saveEvents(slug: string, gender: Gender, groups: string[]) {
+    void updateEventGroups(slug, gender, groups).catch(() =>
+      setMessage('Could not save athlete events.'),
     );
   }
 
@@ -103,6 +116,50 @@ export function NotificationSettings() {
                   />
                 </span>
               ))}
+              {/* Which of the athlete's disciplines this favorite covers. One
+                  person is one favorite, so the set lives here rather than
+                  costing a second star (and a second slot against the cap). */}
+              <div className="notif-events">
+                {f.event_groups.map((slug) => (
+                  <span key={slug} className="notif-event">
+                    {eventLabel(slug, f.gender)}
+                    {f.event_groups.length > 1 && (
+                      <button
+                        type="button"
+                        className="notif-event-x"
+                        aria-label={`Stop following ${f.athlete_name} in ${eventLabel(slug, f.gender)}`}
+                        onClick={() =>
+                          saveEvents(
+                            f.athlete_slug,
+                            f.gender,
+                            f.event_groups.filter((s) => s !== slug),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                <select
+                  className="notif-event-add"
+                  aria-label={`Add an event for ${f.athlete_name}`}
+                  value=""
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    saveEvents(f.athlete_slug, f.gender, [...f.event_groups, e.target.value]);
+                  }}
+                >
+                  <option value="">+ Event</option>
+                  {eventGroupsFor(f.gender)
+                    .filter((g) => !f.event_groups.includes(g.slug))
+                    .map((g) => (
+                      <option key={g.slug} value={g.slug}>
+                        {g.mainEvent}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>

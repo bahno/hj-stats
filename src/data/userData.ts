@@ -5,6 +5,9 @@ import { DEFAULT_NOTIFY_PREFS } from './types';
 export interface Profile {
   id: string;
   default_gender: Gender | null;
+  // An event group's ranking API slug. Gender-neutral, so it is resolved
+  // against default_gender at read time.
+  default_event: string | null;
 }
 
 export interface Favorite {
@@ -12,14 +15,19 @@ export interface Favorite {
   athlete_slug: string;
   athlete_name: string;
   gender: Gender;
+  /** The event groups this athlete is followed in, as ranking API slugs. A
+   *  favorite is one person; this says which of their disciplines to report on. */
+  event_groups: string[];
   notify_prefs: NotifyPrefs;
 }
+
+const FAVORITE_COLUMNS = 'id, athlete_slug, athlete_name, gender, event_groups, notify_prefs';
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, default_gender')
+    .select('id, default_gender, default_event')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -28,7 +36,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'default_gender'>>,
+  patch: Partial<Pick<Profile, 'default_gender' | 'default_event'>>,
 ): Promise<void> {
   if (!supabase) throw new Error('Auth is not configured');
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
@@ -39,29 +47,35 @@ export async function listFavorites(userId: string): Promise<Favorite[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('favorites')
-    .select('id, athlete_slug, athlete_name, gender, notify_prefs')
+    .select(FAVORITE_COLUMNS)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return ((data as Favorite[] | null) ?? []).map((f) => ({
-    ...f,
-    notify_prefs: { ...DEFAULT_NOTIFY_PREFS, ...(f.notify_prefs ?? {}) },
-  }));
+  return ((data as Favorite[] | null) ?? []).map(normalizeFavorite);
 }
 
 export async function addFavorite(
   userId: string,
-  fav: { athlete_slug: string; athlete_name: string; gender: Gender },
+  fav: { athlete_slug: string; athlete_name: string; gender: Gender; event_groups: string[] },
 ): Promise<Favorite> {
   if (!supabase) throw new Error('Auth is not configured');
   const { data, error } = await supabase
     .from('favorites')
     .insert({ user_id: userId, ...fav })
-    .select('id, athlete_slug, athlete_name, gender, notify_prefs')
+    .select(FAVORITE_COLUMNS)
     .single();
   if (error) throw error;
-  const row = data as Favorite;
-  return { ...row, notify_prefs: { ...DEFAULT_NOTIFY_PREFS, ...(row.notify_prefs ?? {}) } };
+  return normalizeFavorite(data as Favorite);
+}
+
+/** Rows written before a column existed come back null; the callers all treat
+ *  these as plain values, so fill them in once here rather than everywhere. */
+function normalizeFavorite(f: Favorite): Favorite {
+  return {
+    ...f,
+    event_groups: f.event_groups ?? [],
+    notify_prefs: { ...DEFAULT_NOTIFY_PREFS, ...(f.notify_prefs ?? {}) },
+  };
 }
 
 export async function removeFavorite(
@@ -118,10 +132,30 @@ export async function updateFavoriteNotifyPrefs(
   gender: Gender,
   prefs: NotifyPrefs,
 ): Promise<void> {
+  await patchFavorite(userId, slug, gender, { notify_prefs: prefs });
+}
+
+export async function updateFavoriteEventGroups(
+  userId: string,
+  slug: string,
+  gender: Gender,
+  groups: string[],
+): Promise<void> {
+  await patchFavorite(userId, slug, gender, { event_groups: groups });
+}
+
+/** An empty result means the row is missing or RLS refused it — both are
+ *  failures the caller must see, since PostgREST reports neither as an error. */
+async function patchFavorite(
+  userId: string,
+  slug: string,
+  gender: Gender,
+  patch: Partial<Pick<Favorite, 'notify_prefs' | 'event_groups'>>,
+): Promise<void> {
   if (!supabase) throw new Error('Auth is not configured');
   const { data, error } = await supabase
     .from('favorites')
-    .update({ notify_prefs: prefs })
+    .update(patch)
     .eq('user_id', userId)
     .eq('athlete_slug', slug)
     .eq('gender', gender)

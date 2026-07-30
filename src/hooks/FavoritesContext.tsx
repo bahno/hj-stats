@@ -13,12 +13,18 @@ import {
   addFavorite,
   listFavorites,
   removeFavorite,
+  updateFavoriteEventGroups,
   updateFavoriteNotifyPrefs,
   type Favorite,
 } from '../data/userData';
 import type { NotifyPrefs } from '../data/types';
 
-type NewFavorite = { athlete_slug: string; athlete_name: string; gender: Gender };
+type NewFavorite = {
+  athlete_slug: string;
+  athlete_name: string;
+  gender: Gender;
+  event_groups: string[];
+};
 
 interface FavoritesValue {
   favorites: Favorite[];
@@ -26,6 +32,7 @@ interface FavoritesValue {
   isFavorite: (slug: string, gender: Gender) => boolean;
   toggle: (fav: NewFavorite) => Promise<void>;
   updatePrefs: (slug: string, gender: Gender, prefs: NotifyPrefs) => Promise<void>;
+  updateEventGroups: (slug: string, gender: Gender, groups: string[]) => Promise<void>;
 }
 
 const FavoritesContext = createContext<FavoritesValue | null>(null);
@@ -114,9 +121,28 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     [user, favorites],
   );
 
+  const updateEventGroups = useCallback(
+    async (slug: string, gender: Gender, groups: string[]) => {
+      if (!user) return;
+      const prev = favorites;
+      setFavorites((cur) =>
+        cur.map((f) =>
+          f.athlete_slug === slug && f.gender === gender ? { ...f, event_groups: groups } : f,
+        ),
+      );
+      try {
+        await updateFavoriteEventGroups(user.id, slug, gender, groups);
+      } catch (e) {
+        setFavorites(prev);
+        throw e;
+      }
+    },
+    [user, favorites],
+  );
+
   const value = useMemo<FavoritesValue>(
-    () => ({ favorites, loading, isFavorite, toggle, updatePrefs }),
-    [favorites, loading, isFavorite, toggle, updatePrefs],
+    () => ({ favorites, loading, isFavorite, toggle, updatePrefs, updateEventGroups }),
+    [favorites, loading, isFavorite, toggle, updatePrefs, updateEventGroups],
   );
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;

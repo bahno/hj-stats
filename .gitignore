@@ -31,3 +31,4 @@ todo.md
 
 # Deno resolves edge-function deps from the pinned import URLs.
 deno.lock
+CLAUDE.md

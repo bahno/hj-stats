@@ -12,7 +12,7 @@ installed globally.
 
 ```bash
 npx supabase secrets set RESEND_API_KEY=re_xxx
-npx supabase secrets set NOTIFY_FROM_EMAIL="HJ Stats <no-reply@yourdomain>"
+npx supabase secrets set NOTIFY_FROM_EMAIL="Track Rank <no-reply@yourdomain>"
 
 # Print the secret BEFORE setting it — step 5 needs the value, and a secret
 # cannot be read back out of Supabase afterwards.
@@ -20,7 +20,7 @@ CRON_SECRET="$(openssl rand -hex 32)"; echo "$CRON_SECRET"
 npx supabase secrets set CRON_SECRET="$CRON_SECRET"
 
 # Origins allowed to call delete-account from a browser (comma-separated).
-npx supabase secrets set ALLOWED_ORIGINS="https://bahno.github.io"
+npx supabase secrets set ALLOWED_ORIGINS="https://bahno.info"
 ```
 (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
 
@@ -32,7 +32,7 @@ Do this **before** step 4. The poller selects `last_ranking_weeks` and reads
 `notification_outbox`; deployed against the old schema it fails every run with
 `notification_settings query failed`.
 ```bash
-npx supabase db push    # applies 0002_notifications.sql .. 0006_notification_outbox.sql
+npx supabase db push    # applies 0002_notifications.sql .. 0008_default_event.sql
 ```
 
 ## 4. Deploy functions

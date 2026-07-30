@@ -34,10 +34,9 @@ function takes it as a parameter.
 | `scripts/capture-oracle-fixtures.mjs` | captures WA payloads as committed fixtures |
 | `scripts/capture-deep-calculations.mjs` | surveys mid-table and lower-ranked athletes |
 
-**Verified state:** 40 test files / 421 tests pass, `npx tsc -b` exits 0, `npm run build`
-succeeds, `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exit 0.
-(The 40/413 recorded here before the UI work was already off by a file - the tree held 39
-files / 411 tests at that commit.)
+**Verified state:** 43 test files / 445 tests pass, `npx tsc -b` exits 0, `npm run build`
+succeeds. `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exited 0 at the
+end of the engine work and nothing since has touched the pipeline.
 
 ## What is next: the UI and storage plan
 
@@ -64,16 +63,62 @@ every other group gets a line saying its scoring table isn't loaded. That gate d
 own when the scoring-tables work lands. Until then, do not "generalize" the simulator - there is
 nothing to score against.
 
-Two things deliberately left alone:
+**The selection now persists** the same way the gender does. `profiles.default_event`
+(migration `0008_default_event.sql`) holds the group's gender-neutral slug, written on every
+pick in `AthleteLookup` exactly as the calculator's toggle writes `default_gender`. A gender
+switch saves the *counterpart's* slug, since the hurdles differ by gender. An unresolvable
+slug falls back rather than erroring. Signed-out users get no persistence, which is also
+true of the gender today.
+
+**Rankings is the landing view**, not the calculator, and leads the tab row. The calculator is
+still high-jump-only, so it should not be the first screen; flip `Shell`'s initial `view` back
+once the scoring tables land.
+
+**State is shareable.** `src/urlState.ts` merges query parameters rather than replacing them,
+since `App` owns `view` and `AthleteLookup` owns `gender`/`event`/`type`/`q`. The athlete is
+carried as the search text, not a slug, so a link reuses the ordinary lookup path and degrades
+to the candidate list when the name is ambiguous. A link outranks `default_event`: if the URL
+says anything about the lookup, the saved preference is not applied at all. Writes are
+`replaceState`, so the picker does not fill the Back button.
+
+Because the app now writes to the URL and jsdom shares one window per test file, `test-setup.ts`
+resets the query string before each test. Without it, an event picked in one test decides the
+starting state of the next.
+
+**A favorite carries the disciplines it is followed in.** `favorites.event_groups text[]`
+(migration `0007_favorite_event_groups.sql`) holds ranking API slugs, same gender-neutral values
+as `profiles.default_event`. The product decision behind it: **a favorite is a person, not a
+person-in-an-event.** One row per athlete, so following Duplantis in the pole vault and the 100m
+costs one of the 50 favorite slots, not two, and the star stays per person - it lights up in
+every group, which is correct under this model. The set is edited in `NotificationSettings`,
+next to `notify_prefs`, as chips plus an add-select; the last discipline can't be removed, since
+a favorite followed in nothing is what un-starring is for. A new favorite starts out followed in
+whatever group the star was clicked in. A favorite chip in the lookup now searches one of the
+athlete's own disciplines rather than whatever the picker shows - the current selection if they
+are followed in it, otherwise their first.
+
+`notify-poll` still reads the high jump ranking only, so it now **skips favorites not followed
+in `high-jump`** rather than mailing high jump news about a sprinter. That filter is the seam
+section 3 widens.
+
+One thing deliberately left alone:
 
 - `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than
   reading `EventGroup.countingResults`. It only runs behind the high-jump gate now, so threading
   the field through today would be dead configurability. Do it when a group with a different
   count (combined events use 2) actually becomes reachable.
-- **A favorite is still a person + gender, with no event group** (see the schema note below). A
-  favorite chip therefore searches whichever event is selected, mapped to the favorite's gender.
-  That is only right because athletes contest one group in practice. Fix it in the schema, not
-  by guessing a group in the UI.
+
+**The product is called Track Rank and lives at the root of `bahno.info`.** `index.html`,
+`Logo.tsx`, `README.md`, the unsubscribe page and the notification From name carry the name.
+The domain move retired the `/hj-stats/` subpath: Vite's `base` is `/`, `public/CNAME` pins the
+domain into the Pages artifact, `og:image`/`og:url` are absolute (crawlers don't resolve a
+relative `og:image`), and `delete-account`'s ALLOWED_ORIGINS fallback is the new origin - a stale
+value there is a CORS failure on account deletion, not a cosmetic one. The repo and the npm
+package name are still `hj-stats`; renaming those is the user's call.
+
+**Supabase Auth redirect URLs are not in this repo** and still point at the old address. Add
+`https://bahno.info/` in the dashboard, or every confirmation and password-reset link sends
+people to a site that no longer exists there.
 
 ### 2. Storage schema - this is the part that will bite
 
@@ -83,11 +128,10 @@ or two groups' pollers both write, snapshots **silently overwrite each other** a
 timeline becomes wrong without any error. This key must gain the event group. Needs a migration
 plus a backfill decision for existing rows (they are all high jump, so backfill is a constant).
 
-**`favorites` is unique on `(user_id, athlete_slug, gender)`** (`supabase/migrations/0001_init.sql:17`).
-Less broken, but it forces a product decision you should make deliberately rather than by
-default: is a favorite a *person* (follow Duplantis everywhere) or a *person in an event*
-(follow him in pole vault only)? Notification volume and the settings UI both hang off that
-answer. Do not let the schema decide it by accident.
+**`favorites` is unique on `(user_id, athlete_slug, gender)`** (`supabase/migrations/0001_init.sql:17`)
+and that stays. The person-vs-person-in-an-event question is **settled: a favorite is a person**,
+carrying an `event_groups text[]` of the disciplines to report on (migration `0007`). See
+section 1. Existing rows were backfilled to `high-jump`, which is what they all were.
 
 ### 3. Scaling the poller
 
@@ -95,6 +139,11 @@ answer. Do not let the schema decide it by accident.
 
 - line 92 - `if (c?.discipline !== 'High Jump') continue;`
 - lines 165 and 173 - `eventGroup: 'high-jump'` in the paginated ranking fetch
+
+`notify-poll/index.ts` now filters favorites to those whose `event_groups` contains `high-jump`,
+so the poller's reach is honest about what it actually reads. That filter is also the answer to
+"which groups does anyone actually follow" - the union of every favorite's `event_groups` is the
+poll set, and it will be far smaller than 72.
 
 Going to all groups means 36 groups x 2 genders = **72 paginated ranking fetches per poll**, up
 from 2. That is a different order of cost and runtime, and Deno edge functions have execution
@@ -106,6 +155,13 @@ Reuse `EventGroup.disciplines` for the line-92 filter instead of a hardcoded str
 there says it mirrors "the frontend's High Jump filter", which no longer exists in that form.
 
 ## Traps, learned the hard way
+
+- **Two migrations must never share a version prefix.** The Supabase CLI keys
+  `supabase_migrations.schema_migrations` on the digits before the first underscore, so a second
+  `0006_*.sql` is read as already applied and `db push` skips it - no error, no column, and the
+  app then fails at runtime against a schema that looks current. This branch shipped
+  `0006_default_event.sql` next to main's `0006_notification_outbox.sql`; it is now `0008`.
+  Check `ls supabase/migrations` before naming a new one.
 
 - **The EA gateway 403s on TLS fingerprint, not headers.** Python `requests` and Node
   `fetch`/undici both fail against `api.european-athletics.com` no matter what headers you send.
