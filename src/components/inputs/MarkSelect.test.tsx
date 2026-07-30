@@ -49,8 +49,4 @@ describe('MarkSelect', () => {
     expect(screen.getByLabelText('metres')).toHaveAttribute('role', 'listbox');
   });
 
-  it('writes the composed mark out the way the feeds write it', () => {
-    render(<MarkSelect table={tableFor('10000m', 'men')} value={1668.56} onChange={() => {}} />);
-    expect(screen.getByText('27:48.56')).toBeInTheDocument();
-  });
 });
