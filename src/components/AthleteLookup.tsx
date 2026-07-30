@@ -38,9 +38,7 @@ import {
   findEventGroup,
   type EventGroup,
 } from '../data/events';
-import { scoringTable } from '../engine/data';
 import { markSuffix } from '../engine/mark';
-import { hasScoringTable } from '../engine/marks';
 import { fixedPeriodWindow, rankingWindow } from '../engine/window';
 import { EventGroupSelect } from './inputs/EventGroupSelect';
 import { GenderToggle } from './inputs/GenderToggle';
@@ -938,24 +936,16 @@ function Result({ found, onNotice, rankingType, changeRankingType }: { found: Fo
             )}
           </div>
 
-          {/* Simulation needs a mark→points table, and only high jump has one so far.
-              Say so rather than scoring another event off the wrong table. */}
-          {hasScoringTable(scoringTable, group) ? (
-            <SimulateResult
-              gender={gender}
-              baseScores={simBaseScores}
-              currentScore={simCurrentScore}
-              currentPlace={ranked.row.place}
-              peerScores={peerScores}
-              road={simRoad}
-              rankingType={rankingType}
-            />
-          ) : (
-            <p className="comps-hint muted" data-testid="no-scoring-table">
-              Result simulation isn't available for {group.mainEvent} yet — its scoring table
-              hasn't been loaded.
-            </p>
-          )}
+          <SimulateResult
+            group={group}
+            baseScores={simBaseScores}
+            currentScore={simCurrentScore}
+            currentPlace={ranked.row.place}
+            peerScores={peerScores}
+            road={simRoad}
+            rankingType={rankingType}
+          />
+
         </>
       ) : (
         roadEntry?.qualificationDetails && (

@@ -1826,3 +1826,41 @@ h2 {
   background: rgb(var(--accent-rgb) / 0.18);
   border-color: rgb(var(--accent-rgb) / 0.5);
 }
+
+/* The simulator's mark picker: one wheel per digit group of a mark, side by side,
+   with the mark they compose to underneath. */
+.mark-select .mark-control {
+  min-width: 0;
+}
+
+.mark-select .mark-wheels {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mark-select .mark-wheels .wheel {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mark-select .mark-readout {
+  display: block;
+  margin-top: 2px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* A digit the cascade has fully determined - shown in place of a spinner that could
+   not move. Matches the wheel's centre band so the row reads as one control. */
+.mark-select .wheel-fixed {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}

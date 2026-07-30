@@ -1,6 +1,7 @@
-# Handoff: all-disciplines, engine done, UI next
+# Handoff: all-disciplines, engine done, simulator scoring all 36 groups
 
-Rewritten 2026-07-28. Read this first, then the plan it points at.
+Rewritten 2026-07-28; scoring-table wiring folded in 2026-07-30. Read this first, then the
+plan it points at.
 
 ## Where the work lives
 
@@ -30,13 +31,22 @@ function takes it as a parameter.
 | `src/engine/dates.ts` | `parseWaDate`, `oneYearEarlier` |
 | `src/engine/window.ts` | `rankingWindow`, `fixedPeriodWindow`, `isInWindow` |
 | `src/engine/counting.ts` | `isCountableResult`, `scoreResults`, `substitutePool` |
+| `src/engine/scoring.ts` | `loadScoringTable`, `markPoints` - mark to performance points, all 36 groups |
+| `src/engine/markWheels.ts` | splits a mark into cascading digit groups for the picker |
+| `src/components/inputs/MarkSelect.tsx` | the picker itself: one wheel per digit group |
 | `pipeline/harvest_disciplines.py` | harvests each group's long discipline names live |
+| `pipeline/split_scoring.py` | splits the 1.1 MB tables into 36 on-demand chunks |
 | `scripts/capture-oracle-fixtures.mjs` | captures WA payloads as committed fixtures |
 | `scripts/capture-deep-calculations.mjs` | surveys mid-table and lower-ranked athletes |
 
-**Verified state:** 43 test files / 445 tests pass, `npx tsc -b` exits 0, `npm run build`
-succeeds. `python pipeline/verify_rules.py` and `python pipeline/verify.py` both exited 0 at the
-end of the engine work and nothing since has touched the pipeline.
+**Verified state (2026-07-30):** 49 test files / 483 tests pass, `npx tsc -b` exits 0,
+`npm run build` succeeds, `python pipeline/verify.py` and `python pipeline/verify_rules.py`
+both exit 0. `verify.py` reports 36 event groups, 40 by-eye anchors, and 152 captured World
+Athletics results reproduced exactly (20 wind-affected differ by the wind adjustment).
+
+The built entry chunk is 68.56 kB gzipped and the 36 scoring tables ship as separate 6-8 kB
+gzipped chunks, so first paint does not carry them. If that entry number jumps by ~200 kB,
+something started importing a scoring table statically.
 
 ## What is next: the UI and storage plan
 
@@ -57,11 +67,14 @@ carries a selection across a gender switch, including the hurdles, whose slugs d
 Marks now render with `markSuffix(group.mark)` - " m" for heights and distances, nothing for
 times, since "9.67 s" reads worse than "9.67".
 
-**The simulator is high-jump-only and is now gated, not hidden.** `scoring_table.json` holds one
-event, so `hasScoringTable(scoringTable, group)` decides whether `SimulateResult` renders at all;
-every other group gets a line saying its scoring table isn't loaded. That gate disappears on its
-own when the scoring-tables work lands. Until then, do not "generalize" the simulator - there is
-nothing to score against.
+**The simulator now works in all 36 groups; the gate is gone.** `hasScoringTable` has been
+deleted. `SimulateResult` takes an `EventGroup`, loads that group's chunk from
+`src/data/scoring/` on demand via `loadScoringTable`, and picks a mark with `MarkSelect` -
+cascading wheels over the mark's digit groups, so every reachable combination is a mark the
+book really lists. See `docs/superpowers/specs/2026-07-30-simulator-all-disciplines-design.md`.
+
+`Calculator` and `Compare` are deliberately still high-jump-only and still read
+`scoring_table.json`. They have no event picker; giving them one is separate work.
 
 **The selection now persists** the same way the gender does. `profiles.default_event`
 (migration `0008_default_event.sql`) holds the group's gender-neutral slug, written on every
@@ -71,8 +84,9 @@ slug falls back rather than erroring. Signed-out users get no persistence, which
 true of the gender today.
 
 **Rankings is the landing view**, not the calculator, and leads the tab row. The calculator is
-still high-jump-only, so it should not be the first screen; flip `Shell`'s initial `view` back
-once the scoring tables land.
+still high-jump-only - the scoring tables landed for the *simulator*, not for `Calculator` -
+so it should still not be the first screen. Flip `Shell`'s initial `view` back only once
+`Calculator` itself takes an event group.
 
 **State is shareable.** `src/urlState.ts` merges query parameters rather than replacing them,
 since `App` owns `view` and `AthleteLookup` owns `gender`/`event`/`type`/`q`. The athlete is
@@ -101,12 +115,13 @@ are followed in it, otherwise their first.
 in `high-jump`** rather than mailing high jump news about a sprinter. That filter is the seam
 section 3 widens.
 
-One thing deliberately left alone:
+One thing that was deliberately left alone, and no longer is:
 
-- `src/engine/simulate.ts:6` still exports a module-level `COUNTING_RESULTS = 5` rather than
-  reading `EventGroup.countingResults`. It only runs behind the high-jump gate now, so threading
-  the field through today would be dead configurability. Do it when a group with a different
-  count (combined events use 2) actually becomes reachable.
+- `COUNTING_RESULTS` is gone. `recomputeRanking` takes the group's `countingResults`, since
+  the simulator is now reachable from 35 groups that are not the high jump. Every Track &
+  Field group is still 5, so nothing changed in behaviour - the constant just stopped being
+  a trap. It was correctly left as a constant while the simulator was gated; un-gating it is
+  what made threading the field through real rather than speculative.
 
 **The product is called Track Rank and lives at the root of `bahno.info`.** `index.html`,
 `Logo.tsx`, `README.md`, the unsubscribe page and the notification From name carry the name.
@@ -174,10 +189,18 @@ there says it mirrors "the frontend's High Jump filter", which no longer exists 
 - **`pipeline/rules_anchors.py` values were read off the rendered page by eye, before the
   extractor existed.** Never regenerate them from extractor output; that would defeat the entire
   point of having them.
-- **Two scoring paths coexist.** `combinedScore` reads `placing_points.json` (Table 2.2) and
-  `scoreResults` reads `placing_tables.json` (all 9 tables). They agree exactly on finals today,
-  which is precisely the kind of agreement that drifts unnoticed. Collapsing them belongs in the
-  UI migration, since `score.ts`'s signatures were kept working on purpose.
+- **Two scoring paths still coexist, but the dangerous one is fixed.** The simulator used to
+  score placing off `placing_points.json` (Table 2.2 alone), which was simply wrong for the
+  5000m, 3000mSC and 10,000m groups - a category A win is 100 under 2.2 but 56 under 2.9.
+  `resultScoreFor` now goes through `placingPointsFor` (all 9 tables) and
+  `src/engine/simulate.test.ts` pins the 2.5 and 2.9 cases. `score.ts` still reads
+  `placing_points.json` for `Calculator` and `Compare`, which are high-jump-only, where
+  Table 2.2 is correct. Collapsing that last path belongs with migrating those two views.
+- **`group.mainEvent` is a Table 2.12 short label, not a feed long-name.** `resultScoreFor`
+  passes it to `placingPointsFor` as the discipline, where it deliberately fails to match the
+  `byDiscipline` key `"10 Kilometres Road"`, so a simulated 10,000m gets Table 2.9 rather than
+  the road Table 2.10. That is the right answer by way of a non-match, so a test pins it
+  rather than trusting it to stay true.
 - **Road rankings use a fixed published window**, not a rolling one. Birmingham publishes
   27 JUL 2025 - 26 JUL 2026 for both the entry-standard and world-ranking routes, so the Area
   Championships allowance must stay off that path. `fixedPeriodWindow` encodes this. Confirmed
@@ -220,9 +243,12 @@ These are documented in the PR body and are NOT blockers for the UI work.
 
 ## Still out of scope
 
-- **Scoring tables** (mark to performance points). The user is doing this research themselves.
-  `pipeline/parse_scoring.py` currently extracts the high jump column only, via hardcoded PDF
-  page ranges.
+- **Generalising `Calculator` and `Compare`.** The simulator is wired to all 36 groups; these
+  two are not. Both still read `scoring_table.json` and have no event picker. `Compare` is the
+  harder one: `ScoreVsHeightChart` plots a point per mark, which is 43 for the high jump and
+  1400 for a 10,000m, so the chart needs rethinking rather than re-pointing.
+- **A deeper `pipeline/harvest_disciplines.py --sample`.** Rare similar-events (50m, 300mH,
+  Mile Road Race) are still missing from the harvested lists.
 - **Overweighting** (only the latest OW/DF edition counts) - documented, not implemented.
 - Road running, race walking, combined events, cross country. Race walk slugs were never found in
   the EA ranking API.

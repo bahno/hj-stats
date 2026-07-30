@@ -1,20 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import type { CountryScore } from '../data/types';
+import { findEventGroup } from '../data/events';
+import { placingPointsFor } from './placing';
+import { markPoints, parseScoringTable, type ParsedTable } from './scoring';
 import {
   countryRank,
   projectedPlace,
   qualifyingPoolRank,
   qualifyingPosition,
   recomputeRanking,
+  resultScoreFor,
   withinWorldRankingQuota,
 } from './simulate';
+
+const chunks = import.meta.glob('../data/scoring/*.json', { eager: true }) as Record<
+  string,
+  {
+    default: {
+      slug: string;
+      gender: string;
+      column: string;
+      marks: Record<string, number>;
+    };
+  }
+>;
+
+function tableFor(slug: string, gender: 'men' | 'women'): ParsedTable {
+  const group = findEventGroup(slug, gender)!;
+  return parseScoringTable(group, chunks[`../data/scoring/${slug}-${gender}.json`].default);
+}
 
 // Mahuchikh's five counting scores (avg 1367).
 const BASE = [1400, 1389, 1369, 1349, 1330];
 
 describe('recomputeRanking', () => {
   it('replaces the weakest counting result when the new result is better', () => {
-    const { newScore, counts, dropped } = recomputeRanking(BASE, 1450);
+    const { newScore, counts, dropped } = recomputeRanking(BASE, 1450, 5);
     // top 5 of [1450,1400,1389,1369,1349] = 6957 / 5 = 1391.4
     expect(newScore).toBe(1391);
     expect(counts).toBe(true);
@@ -22,14 +43,14 @@ describe('recomputeRanking', () => {
   });
 
   it('leaves the ranking unchanged when the new result is too weak to count', () => {
-    const { newScore, counts, dropped } = recomputeRanking(BASE, 1000);
+    const { newScore, counts, dropped } = recomputeRanking(BASE, 1000, 5);
     expect(newScore).toBe(1367);
     expect(counts).toBe(false);
     expect(dropped).toBeNull();
   });
 
   it('adds the result (no drop) when the athlete has fewer than five', () => {
-    const { newScore, counts, dropped } = recomputeRanking([1200, 1100, 1000], 1300);
+    const { newScore, counts, dropped } = recomputeRanking([1200, 1100, 1000], 1300, 5);
     // averages all four: 4600 / 4 = 1150
     expect(newScore).toBe(1150);
     expect(counts).toBe(true);
@@ -161,5 +182,64 @@ describe('countryRank', () => {
     // 2 GBR entry-standard qualifiers pre-occupy positions 1-2; the pool peer (1119)
     // is 3rd; a lower GBR score is 4th — same numbering as the API's countryPosition.
     expect(countryRank(pool, 1109, 'GBR', { GBR: 2 })).toBe(4);
+  });
+});
+
+describe("resultScoreFor uses the group's own placing table", () => {
+  it('scores a high jump final off Table 2.2', () => {
+    const group = findEventGroup('high-jump', 'men')!;
+    const table = tableFor('high-jump', 'men');
+    // Table 2.2 awards 100 for winning a category A final.
+    expect(resultScoreFor(group, table, 2.3, 'A', 1) - markPoints(table, 2.3)).toBe(100);
+  });
+
+  it('scores a 10,000m final off Table 2.9, not Table 2.2', () => {
+    // This is the whole reason the simulator switched off placing_points.json. Winning a
+    // category A final is worth 100 under Table 2.2 but only 56 under Table 2.9, so
+    // scoring a 10,000m against 2.2 would inflate it by 44 points.
+    const group = findEventGroup('10000m', 'men')!;
+    const table = tableFor('10000m', 'men');
+    expect(resultScoreFor(group, table, 1600, 'A', 1) - markPoints(table, 1600)).toBe(56);
+  });
+
+  it('does not fall through to the 10km road table', () => {
+    // group.mainEvent is "10,000m", a Table 2.12 short label. The byDiscipline override
+    // key is "10 Kilometres Road", a feed long-name. They never match, so the group's own
+    // final table applies - which is right, but only by accident. Pin it: Table 2.10
+    // would award 21 for the same win.
+    const group = findEventGroup('10000m', 'men')!;
+    expect(
+      placingPointsFor({
+        group,
+        discipline: '10 Kilometres Road',
+        category: 'A',
+        round: 'final',
+        place: 1,
+        advanced: false,
+      }),
+    ).toBe(21);
+    expect(
+      placingPointsFor({
+        group,
+        discipline: group.mainEvent,
+        category: 'A',
+        round: 'final',
+        place: 1,
+        advanced: false,
+      }),
+    ).toBe(56);
+  });
+
+  it('scores a 5000m final off Table 2.5', () => {
+    const group = findEventGroup('5000m', 'men')!;
+    const table = tableFor('5000m', 'men');
+    expect(resultScoreFor(group, table, 780, 'A', 1) - markPoints(table, 780)).toBe(70);
+  });
+});
+
+describe("recomputeRanking honours the group's counting count", () => {
+  it('averages the best N', () => {
+    const { newScore } = recomputeRanking([100, 200, 300, 400, 500], 600, 5);
+    expect(newScore).toBe(400); // 600+500+400+300+200 = 2000 / 5
   });
 });
