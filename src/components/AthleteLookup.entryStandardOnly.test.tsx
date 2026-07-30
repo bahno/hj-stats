@@ -18,11 +18,11 @@ vi.mock('../hooks/FavoritesContext', () => ({
 }));
 vi.mock('../data/athleteResultsApi', () => ({
   athleteIdFromSlug: () => 1,
-  fetchAthleteHighJumpResults: vi.fn(async () => []),
+  fetchAthleteResults: vi.fn(async () => []),
 }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
+  fetchRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -31,7 +31,7 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
 import { fetchRoadToBirmingham } from '../data/birminghamApi';
 
 function roadData(qualifications: RoadToBirmingham['qualifications']): RoadToBirmingham {
@@ -100,7 +100,7 @@ test('finds and shows an entry-standard qualifier who has no World Ranking entry
 });
 
 test('lists both a ranked athlete and an entry-standard-only qualifier as separate candidates', async () => {
-  vi.mocked(fetchHighJumpRanking).mockResolvedValueOnce({
+  vi.mocked(fetchRanking).mockResolvedValueOnce({
     rankDate: '2026-07-01',
     rows: [
       {

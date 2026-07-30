@@ -6,21 +6,27 @@ import { getProfile, updateProfile } from '../data/userData';
 export function usePreferences() {
   const { user } = useAuth();
   const [defaultGender, setGender] = useState<Gender | null>(null);
+  const [defaultEvent, setEvent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setGender(null);
+      setEvent(null);
       return;
     }
     let active = true;
     setLoading(true);
     getProfile(user.id)
       .then((p) => {
-        if (active) setGender(p?.default_gender ?? null);
+        if (!active) return;
+        setGender(p?.default_gender ?? null);
+        setEvent(p?.default_event ?? null);
       })
       .catch(() => {
-        if (active) setGender(null);
+        if (!active) return;
+        setGender(null);
+        setEvent(null);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -47,5 +53,20 @@ export function usePreferences() {
     [user, defaultGender],
   );
 
-  return { defaultGender, setDefaultGender, loading };
+  const setDefaultEvent = useCallback(
+    async (slug: string) => {
+      if (!user) return;
+      const prev = defaultEvent;
+      setEvent(slug); // optimistic
+      try {
+        await updateProfile(user.id, { default_event: slug });
+      } catch (e) {
+        setEvent(prev); // rollback
+        throw e;
+      }
+    },
+    [user, defaultEvent],
+  );
+
+  return { defaultGender, setDefaultGender, defaultEvent, setDefaultEvent, loading };
 }

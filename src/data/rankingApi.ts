@@ -57,18 +57,19 @@ interface RankingResponse {
   rankings: RankingRow[];
 }
 
-/** Fetch the full High Jump ranking for a gender (all pages). */
-export async function fetchHighJumpRanking(
+/** Fetch a full ranking for an event group and gender (all pages). */
+export async function fetchRanking(
+  slug: string,
   gender: Gender,
 ): Promise<{ rankDate: string; rows: RankingRow[] }> {
   const first = await trpc<RankingResponse>('worldAthletics.getRanking', {
-    eventGroup: 'high-jump',
+    eventGroup: slug,
     gender,
   });
   const rows = [...first.rankings];
   for (let page = 2; page <= first.pages; page++) {
     const next = await trpc<RankingResponse>('worldAthletics.getRanking', {
-      eventGroup: 'high-jump',
+      eventGroup: slug,
       gender,
       page,
     });

@@ -9,6 +9,7 @@ import { AccountPage } from './auth/AccountPage';
 import { PasswordRecovery } from './auth/PasswordRecovery';
 import { isAuthEnabled } from './lib/supabase';
 import { FavoritesProvider } from './hooks/FavoritesContext';
+import { readParams, writeParams } from './urlState';
 import { ThemeProvider } from './hooks/ThemeContext';
 import { ThemeToggle } from './components/ThemeToggle';
 
@@ -57,7 +58,18 @@ function AccountSlot({
 }
 
 function Shell() {
-  const [view, setView] = useState<View>('calculator');
+  // Rankings, not the calculator: the calculator is high-jump-only until the
+  // scoring tables land, and it should not be the first thing the app shows.
+  // Only the calculator needs naming in a link — rankings is the default, and
+  // the account page is nobody's to share.
+  const [view, setView] = useState<View>(() =>
+    readParams().get('view') === 'calculator' ? 'calculator' : 'rankings',
+  );
+
+  function changeView(v: View) {
+    setView(v);
+    writeParams({ view: v === 'calculator' ? 'calculator' : null });
+  }
   const [showAuth, setShowAuth] = useState(false);
   const { recovering } = useAuth();
 
@@ -85,11 +97,11 @@ function Shell() {
             <ThemeToggle />
             <AccountSlot
               active={view === 'account'}
-              onOpenAccount={() => setView('account')}
+              onOpenAccount={() => changeView('account')}
               onSignIn={() => setShowAuth(true)}
             />
           </div>
-          <Nav value={view} onChange={setView} />
+          <Nav value={view} onChange={changeView} />
         </>
       )}
       {body}

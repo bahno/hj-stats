@@ -1,0 +1,488 @@
+{
+  "source": "https://worldathletics.org/world-ranking-rules/track-field-events-2026",
+  "year": 2026,
+  "retrieved": "2026-07-27",
+  "groups": [
+    {
+      "label": "Men's 100m",
+      "gender": "men",
+      "mainEvent": "100m",
+      "similarEvents": [
+        "50m",
+        "55m",
+        "60m"
+      ],
+      "slug": "100m",
+      "disciplines": [
+        "100 Metres",
+        "60 Metres"
+      ]
+    },
+    {
+      "label": "Men's 200m",
+      "gender": "men",
+      "mainEvent": "200m",
+      "similarEvents": [
+        "200m sh"
+      ],
+      "slug": "200m",
+      "disciplines": [
+        "200 Metres",
+        "200 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Men's 400m",
+      "gender": "men",
+      "mainEvent": "400m",
+      "similarEvents": [
+        "300m",
+        "300m sh",
+        "400m sh",
+        "500m",
+        "500m sh"
+      ],
+      "slug": "400m",
+      "disciplines": [
+        "300 Metres",
+        "400 Metres",
+        "400 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Men's 800m",
+      "gender": "men",
+      "mainEvent": "800m",
+      "similarEvents": [
+        "600m",
+        "600m sh",
+        "800m sh",
+        "1000m",
+        "1000m sh"
+      ],
+      "slug": "800m",
+      "disciplines": [
+        "1000 Metres",
+        "1000 Metres Short Track",
+        "600 Metres Short Track",
+        "800 Metres",
+        "800 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Men's 1500m",
+      "gender": "men",
+      "mainEvent": "1500m",
+      "similarEvents": [
+        "1500m sh",
+        "Mile",
+        "Mile sh",
+        "2000m",
+        "2000m sh",
+        "Mile Road Race"
+      ],
+      "slug": "1500m",
+      "disciplines": [
+        "1500 Metres",
+        "1500 Metres Short Track",
+        "2000 Metres Short Track",
+        "Mile",
+        "Mile Short Track"
+      ]
+    },
+    {
+      "label": "Men's 5000m",
+      "gender": "men",
+      "mainEvent": "5000m",
+      "similarEvents": [
+        "3000m",
+        "3000m sh",
+        "2 Miles",
+        "2 Miles sh",
+        "5000m sh",
+        "5km Road Race"
+      ],
+      "slug": "5000m",
+      "disciplines": [
+        "2 Miles",
+        "3000 Metres",
+        "3000 Metres Short Track",
+        "5 Kilometres Road",
+        "5000 Metres",
+        "5000 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Men's 10,000m",
+      "gender": "men",
+      "mainEvent": "10,000m",
+      "similarEvents": [
+        "10km Road Race"
+      ],
+      "slug": "10000m",
+      "disciplines": [
+        "10 Kilometres Road",
+        "10,000 Metres"
+      ]
+    },
+    {
+      "label": "Men's 110mH",
+      "gender": "men",
+      "mainEvent": "110mH",
+      "similarEvents": [
+        "50mH",
+        "55mH",
+        "60mH"
+      ],
+      "slug": "110mh",
+      "disciplines": [
+        "110 Metres Hurdles",
+        "60 Metres Hurdles"
+      ]
+    },
+    {
+      "label": "Men's 400mH",
+      "gender": "men",
+      "mainEvent": "400mH",
+      "similarEvents": [
+        "300mH"
+      ],
+      "slug": "400mh",
+      "disciplines": [
+        "300 Metres Hurdles",
+        "400 Metres Hurdles"
+      ]
+    },
+    {
+      "label": "Men's 3000mSC",
+      "gender": "men",
+      "mainEvent": "3000mSC",
+      "similarEvents": [
+        "2000mSC"
+      ],
+      "slug": "3000msc",
+      "disciplines": [
+        "2000 Metres Steeplechase",
+        "3000 Metres Steeplechase"
+      ]
+    },
+    {
+      "label": "Men's High Jump",
+      "gender": "men",
+      "mainEvent": "High Jump",
+      "similarEvents": [],
+      "slug": "high-jump",
+      "disciplines": [
+        "High Jump"
+      ]
+    },
+    {
+      "label": "Men's Pole Vault",
+      "gender": "men",
+      "mainEvent": "Pole Vault",
+      "similarEvents": [],
+      "slug": "pole-vault",
+      "disciplines": [
+        "Pole Vault"
+      ]
+    },
+    {
+      "label": "Men's Long Jump",
+      "gender": "men",
+      "mainEvent": "Long Jump",
+      "similarEvents": [],
+      "slug": "long-jump",
+      "disciplines": [
+        "Long Jump"
+      ]
+    },
+    {
+      "label": "Men's Triple Jump",
+      "gender": "men",
+      "mainEvent": "Triple Jump",
+      "similarEvents": [],
+      "slug": "triple-jump",
+      "disciplines": [
+        "Triple Jump"
+      ]
+    },
+    {
+      "label": "Men's Shot Put",
+      "gender": "men",
+      "mainEvent": "Shot Put",
+      "similarEvents": [],
+      "slug": "shot-put",
+      "disciplines": [
+        "Shot Put"
+      ]
+    },
+    {
+      "label": "Men's Discus Throw",
+      "gender": "men",
+      "mainEvent": "Discus Throw",
+      "similarEvents": [],
+      "slug": "discus-throw",
+      "disciplines": [
+        "Discus Throw"
+      ]
+    },
+    {
+      "label": "Men's Hammer Throw",
+      "gender": "men",
+      "mainEvent": "Hammer Throw",
+      "similarEvents": [],
+      "slug": "hammer-throw",
+      "disciplines": [
+        "Hammer Throw"
+      ]
+    },
+    {
+      "label": "Men's Javelin Throw",
+      "gender": "men",
+      "mainEvent": "Javelin Throw",
+      "similarEvents": [],
+      "slug": "javelin-throw",
+      "disciplines": [
+        "Javelin Throw"
+      ]
+    },
+    {
+      "label": "Women's 100m",
+      "gender": "women",
+      "mainEvent": "100m",
+      "similarEvents": [
+        "50m",
+        "55m",
+        "60m"
+      ],
+      "slug": "100m",
+      "disciplines": [
+        "100 Metres",
+        "60 Metres"
+      ]
+    },
+    {
+      "label": "Women's 200m",
+      "gender": "women",
+      "mainEvent": "200m",
+      "similarEvents": [
+        "200m sh"
+      ],
+      "slug": "200m",
+      "disciplines": [
+        "200 Metres",
+        "200 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Women's 400m",
+      "gender": "women",
+      "mainEvent": "400m",
+      "similarEvents": [
+        "300m",
+        "300m sh",
+        "400m sh",
+        "500m",
+        "500m sh"
+      ],
+      "slug": "400m",
+      "disciplines": [
+        "300 Metres Short Track",
+        "400 Metres",
+        "400 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Women's 800m",
+      "gender": "women",
+      "mainEvent": "800m",
+      "similarEvents": [
+        "600m",
+        "600m sh",
+        "800m sh",
+        "1000m",
+        "1000m sh"
+      ],
+      "slug": "800m",
+      "disciplines": [
+        "1000 Metres Short Track",
+        "800 Metres",
+        "800 Metres Short Track"
+      ]
+    },
+    {
+      "label": "Women's 1500m",
+      "gender": "women",
+      "mainEvent": "1500m",
+      "similarEvents": [
+        "1500m sh",
+        "Mile",
+        "Mile sh",
+        "2000m",
+        "2000m sh",
+        "Mile Road Race"
+      ],
+      "slug": "1500m",
+      "disciplines": [
+        "1500 Metres",
+        "1500 Metres Short Track",
+        "2000 Metres Short Track",
+        "Mile",
+        "Mile Short Track"
+      ]
+    },
+    {
+      "label": "Women's 5000m",
+      "gender": "women",
+      "mainEvent": "5000m",
+      "similarEvents": [
+        "3000m",
+        "3000m sh",
+        "2 Miles",
+        "2 Miles sh",
+        "5000m sh",
+        "5km Road Race"
+      ],
+      "slug": "5000m",
+      "disciplines": [
+        "3000 Metres",
+        "3000 Metres Short Track",
+        "5 Kilometres Road",
+        "5000 Metres"
+      ]
+    },
+    {
+      "label": "Women's 10,000m",
+      "gender": "women",
+      "mainEvent": "10,000m",
+      "similarEvents": [
+        "10km Road Race"
+      ],
+      "slug": "10000m",
+      "disciplines": [
+        "10 Kilometres Road",
+        "10,000 Metres"
+      ]
+    },
+    {
+      "label": "Women's 100mH",
+      "gender": "women",
+      "mainEvent": "100mH",
+      "similarEvents": [
+        "50mH",
+        "55mH",
+        "60mH"
+      ],
+      "slug": "100mh",
+      "disciplines": [
+        "100 Metres Hurdles",
+        "60 Metres Hurdles"
+      ]
+    },
+    {
+      "label": "Women's 400mH",
+      "gender": "women",
+      "mainEvent": "400mH",
+      "similarEvents": [
+        "300mH"
+      ],
+      "slug": "400mh",
+      "disciplines": [
+        "400 Metres Hurdles"
+      ]
+    },
+    {
+      "label": "Women's 3000mSC",
+      "gender": "women",
+      "mainEvent": "3000mSC",
+      "similarEvents": [
+        "2000mSC"
+      ],
+      "slug": "3000msc",
+      "disciplines": [
+        "2000 Metres Steeplechase",
+        "3000 Metres Steeplechase"
+      ]
+    },
+    {
+      "label": "Women's High Jump",
+      "gender": "women",
+      "mainEvent": "High Jump",
+      "similarEvents": [],
+      "slug": "high-jump",
+      "disciplines": [
+        "High Jump"
+      ]
+    },
+    {
+      "label": "Women's Pole Vault",
+      "gender": "women",
+      "mainEvent": "Pole Vault",
+      "similarEvents": [],
+      "slug": "pole-vault",
+      "disciplines": [
+        "Pole Vault"
+      ]
+    },
+    {
+      "label": "Women's Long Jump",
+      "gender": "women",
+      "mainEvent": "Long Jump",
+      "similarEvents": [],
+      "slug": "long-jump",
+      "disciplines": [
+        "Long Jump"
+      ]
+    },
+    {
+      "label": "Women's Triple Jump",
+      "gender": "women",
+      "mainEvent": "Triple Jump",
+      "similarEvents": [],
+      "slug": "triple-jump",
+      "disciplines": [
+        "Triple Jump"
+      ]
+    },
+    {
+      "label": "Women's Shot Put",
+      "gender": "women",
+      "mainEvent": "Shot Put",
+      "similarEvents": [],
+      "slug": "shot-put",
+      "disciplines": [
+        "Shot Put"
+      ]
+    },
+    {
+      "label": "Women's Discus Throw",
+      "gender": "women",
+      "mainEvent": "Discus Throw",
+      "similarEvents": [],
+      "slug": "discus-throw",
+      "disciplines": [
+        "Discus Throw"
+      ]
+    },
+    {
+      "label": "Women's Hammer Throw",
+      "gender": "women",
+      "mainEvent": "Hammer Throw",
+      "similarEvents": [],
+      "slug": "hammer-throw",
+      "disciplines": [
+        "Hammer Throw"
+      ]
+    },
+    {
+      "label": "Women's Javelin Throw",
+      "gender": "women",
+      "mainEvent": "Javelin Throw",
+      "similarEvents": [],
+      "slug": "javelin-throw",
+      "disciplines": [
+        "Javelin Throw"
+      ]
+    }
+  ]
+}

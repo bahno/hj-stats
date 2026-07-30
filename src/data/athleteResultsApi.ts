@@ -99,15 +99,16 @@ async function fetchResultsForYear(athleteId: number, year: number): Promise<Ath
 }
 
 /**
- * An athlete's High Jump results across the given calendar years, merged. Only High Jump
- * rows are kept (an athlete's profile can carry other disciplines); everything else —
- * finals filtering, windowing, scoring — is left to engine/counting.ts. Years are fetched
- * in parallel; one year's failure fails the whole call, so callers should catch and degrade.
+ * An athlete's results across the given calendar years, filtered to the disciplines that
+ * count for one event group. Everything else — rounds, windowing, scoring — is left to
+ * engine/counting.ts. Years are fetched in parallel; one year's failure fails the whole
+ * call, so callers should catch and degrade.
  */
-export async function fetchAthleteHighJumpResults(
+export async function fetchAthleteResults(
   athleteId: number,
   years: number[],
+  disciplines: string[],
 ): Promise<AthleteResult[]> {
   const perYear = await Promise.all(years.map((y) => fetchResultsForYear(athleteId, y)));
-  return perYear.flat().filter((r) => r.discipline === 'High Jump');
+  return perYear.flat().filter((r) => disciplines.includes(r.discipline));
 }

@@ -13,7 +13,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function page(msg: string, status = 200, form = ''): Response {
   return new Response(
-    `<!doctype html><meta charset="utf-8"><title>HJ Stats</title><body style="font-family:system-ui;max-width:32rem;margin:4rem auto;text-align:center"><h1>HJ Stats</h1><p>${msg}</p>${form}</body>`,
+    `<!doctype html><meta charset="utf-8"><title>Track Rank</title><body style="font-family:system-ui;max-width:32rem;margin:4rem auto;text-align:center"><h1>Track Rank</h1><p>${msg}</p>${form}</body>`,
     { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
   );
 }

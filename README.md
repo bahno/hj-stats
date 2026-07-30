@@ -1,6 +1,7 @@
-# hj-stats
+# Track Rank
 
-Deployed via GitHub Pages (deploy from `main` branch).
+World and European athlete rankings across all 36 World Athletics track and field
+event groups, with Road to Birmingham 2026 qualification tracking.
 
 Live site: https://bahno.info/
 

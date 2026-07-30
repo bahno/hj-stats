@@ -1,3 +1,8 @@
+/**
+ * Helpers for the high-jump-only scoring_table.json that Calculator and Compare still
+ * read. The simulator moved to src/engine/scoring.ts, which covers all 36 event groups;
+ * `hasScoringTable` went with it, since there is no longer a group to gate out.
+ */
 import type { Gender, ScoringTable } from '../data/types';
 
 export function availableMarks(table: ScoringTable, gender: Gender): number[] {

@@ -189,17 +189,48 @@ body {
   font-size: 0.9rem;
 }
 
+/* Left native, the select draws Chrome's own dropbutton: the glyph sits hard
+   against the right border while the text sits 10px off the left, and the
+   widget's internal metrics make the control 2px taller than the .text-input
+   stacked directly beneath it. Both read as "off". So the chevron is drawn
+   here instead, inset by the same 10px as the text, and the box is pinned to
+   the text input's height. */
 .field select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  background: var(--bg);
+  appearance: none;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%237c8b86' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1L5 5L9 1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 8px 10px;
+  /* Right side clears the chevron: 10px inset + 10px glyph + 8px breathing room. */
+  padding: 8px 28px 8px 10px;
   font-size: 0.95rem;
+  line-height: 1.125;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.field select:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+}
+
+/* The popup list is OS-drawn and does not inherit the card's palette, so the
+   options are coloured explicitly or they land as black-on-white in dark mode.
+   The Track/Jumps/Throws headings stay muted so they still read as headings
+   rather than as selectable events. */
+.field select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.field select optgroup {
+  background: var(--panel);
+  color: var(--muted);
 }
 
 .field select:focus-visible {
@@ -335,14 +366,16 @@ body {
   font-size: 0.85rem;
 }
 
-/* Gender sliding switch */
+/* Gender sliding switch. It fills the field's value column so its right edge
+   lines up with the event select and athlete input stacked below it — a 300px
+   cap here used to leave it ending 58px short of both. The knob is sized in
+   percentages, so it tracks whatever width the column gives. */
 .gender-switch {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
   width: 100%;
-  max-width: 300px;
   height: 34px;
   padding: 2px;
   border: 1px solid var(--line);
@@ -1589,6 +1622,49 @@ h2 {
   justify-content: center;
   padding: 7px 0;
 }
+/* The athlete's disciplines, on their own full-width line under the trigger
+   row — 36 groups will not fit in a column. `.notif-grow` is display:contents,
+   so this spans the grid rather than nesting inside a cell. */
+.notif-events {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+.notif-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.notif-event-x {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.notif-event-x:hover {
+  color: var(--text);
+}
+.notif-event-add {
+  padding: 2px 6px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
 
 /* Themed checkbox shared by the master toggle and the trigger grid. */
 .notif-check {
@@ -1749,4 +1825,42 @@ h2 {
 .fav-chip:hover {
   background: rgb(var(--accent-rgb) / 0.18);
   border-color: rgb(var(--accent-rgb) / 0.5);
+}
+
+/* The simulator's mark picker: one wheel per digit group of a mark, side by side,
+   with the mark they compose to underneath. */
+.mark-select .mark-control {
+  min-width: 0;
+}
+
+.mark-select .mark-wheels {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mark-select .mark-wheels .wheel {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mark-select .mark-readout {
+  display: block;
+  margin-top: 2px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* A digit the cascade has fully determined - shown in place of a spinner that could
+   not move. Matches the wheel's centre band so the row reads as one control. */
+.mark-select .wheel-fixed {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }

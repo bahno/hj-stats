@@ -18,11 +18,11 @@ vi.mock('../hooks/FavoritesContext', () => ({
 }));
 vi.mock('../data/athleteResultsApi', () => ({
   athleteIdFromSlug: () => 1,
-  fetchAthleteHighJumpResults: vi.fn(async () => []),
+  fetchAthleteResults: vi.fn(async () => []),
 }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(),
+  fetchRanking: vi.fn(),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -39,7 +39,7 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
 
 function row(id: number, athlete: string, slug: string): RankingRow {
   return {
@@ -65,10 +65,10 @@ const ROWS = [row(42, 'Gianmarco Tamberi', 'tamberi'), row(43, 'Ada Jumper', 'ad
 
 beforeEach(() => {
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men' },
-    { id: 'f2', athlete_slug: 'ada-jumper', athlete_name: 'Ada Jumper', gender: 'men' },
+    { id: 'f1', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men', event_groups: ['high-jump'] },
+    { id: 'f2', athlete_slug: 'ada-jumper', athlete_name: 'Ada Jumper', gender: 'men', event_groups: ['high-jump'] },
   ];
-  vi.mocked(fetchHighJumpRanking).mockReset().mockResolvedValue({
+  vi.mocked(fetchRanking).mockReset().mockResolvedValue({
     rankDate: '2026-07-01',
     rows: ROWS,
   });

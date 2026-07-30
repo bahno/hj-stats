@@ -18,11 +18,11 @@ vi.mock('../hooks/FavoritesContext', () => ({
 }));
 vi.mock('../data/athleteResultsApi', () => ({
   athleteIdFromSlug: () => 1,
-  fetchAthleteHighJumpResults: vi.fn(async () => []),
+  fetchAthleteResults: vi.fn(async () => []),
 }));
 vi.mock('../data/rankingApi', async (orig) => ({
   ...(await orig<typeof import('../data/rankingApi')>()),
-  fetchHighJumpRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
+  fetchRanking: vi.fn(async () => ({ rankDate: '', rows: [] })),
   fetchRankingCalculation: vi.fn(),
 }));
 vi.mock('../data/birminghamApi', async (orig) => ({
@@ -39,7 +39,7 @@ vi.mock('../data/birminghamApi', async (orig) => ({
 }));
 
 import { AthleteLookup } from './AthleteLookup';
-import { fetchHighJumpRanking, fetchRankingCalculation } from '../data/rankingApi';
+import { fetchRanking, fetchRankingCalculation } from '../data/rankingApi';
 
 const calc: RankingCalculation = {
   averagePerformanceScore: 1500,
@@ -69,9 +69,9 @@ beforeEach(() => {
 test('shows the diadem for Klára, matching her name diacritic-insensitively', async () => {
   // The ranking (and the saved favorite) carry the accented spelling.
   mocks.favorites.current = [
-    { id: 'f1', athlete_slug: 'krejcirikova', athlete_name: 'Klára Krejčířiková', gender: 'women' },
+    { id: 'f1', athlete_slug: 'krejcirikova', athlete_name: 'Klára Krejčířiková', gender: 'women', event_groups: ['high-jump'] },
   ];
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({
+  vi.mocked(fetchRanking).mockResolvedValue({
     rankDate: '2026-07-01',
     rows: [row(7, 'Klára Krejčířiková', 'krejcirikova')],
   });
@@ -85,9 +85,9 @@ test('shows the diadem for Klára, matching her name diacritic-insensitively', a
 
 test('does not show the diadem for other athletes', async () => {
   mocks.favorites.current = [
-    { id: 'f2', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men' },
+    { id: 'f2', athlete_slug: 'tamberi', athlete_name: 'Gianmarco Tamberi', gender: 'men', event_groups: ['high-jump'] },
   ];
-  vi.mocked(fetchHighJumpRanking).mockResolvedValue({
+  vi.mocked(fetchRanking).mockResolvedValue({
     rankDate: '2026-07-01',
     rows: [row(42, 'Gianmarco Tamberi', 'tamberi')],
   });
